@@ -1,0 +1,22 @@
+# Node dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+logs
+*.log
+
+# Build and cache
+dist/
+build/
+.cache/
+.next/
+
+# Uploads (optional if you don't want to commit uploaded files)
+uploads/
+
+# OS-specific
+.DS_Store
+Thumbs.db
