@@ -82,7 +82,7 @@ router.post('/signin', async (req, res) => {
           email: ceo.email,
           role: ceo.role
         },
-        redirectTo: "/dashboard/ceo"
+        redirectTo: "/dashboard/ceo/overview"
       });
     }
 

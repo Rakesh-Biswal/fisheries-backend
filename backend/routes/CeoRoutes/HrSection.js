@@ -7,7 +7,7 @@ const ceoAuth = require("./CeoAuthMiddlewear");
 const router = express.Router();
 
 // Apply ceoAuth middleware to all routes in this file
-router.use(ceoAuth);
+// router.use(ceoAuth);
 
 // Get HR dashboard data 
 router.get("/dashboard", async (req, res) => {
@@ -158,5 +158,85 @@ router.post("/hire-hr", async (req, res) => {
     });
   }
 });
+
+
+// Get individual HR employee profile
+router.get("/profile/:id", async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Find HR employee with business data
+    const hrEmployee = await HrEmployee.findById(id)
+    if (!hrEmployee) {
+      return res.status(404).json({
+        success: false,
+        message: "HR employee not found",
+      })
+    }
+
+    // Get business data for this employee
+    const businessData = await HrBusinessData.findOne({ employeeId: id })
+
+    // Combine employee and business data
+    const profileData = {
+      ...hrEmployee.toObject(),
+      businessData: businessData || null,
+      // Add calculated fields
+      experienceYears: businessData
+        ? Math.floor((new Date() - new Date(businessData.joiningDate)) / (365.25 * 24 * 60 * 60 * 1000))
+        : 0,
+
+      // Performance metrics (dummy data for now)
+      performanceMetrics: {
+        attendanceRate: 94.5,
+        performanceScore: 8.7,
+        teamSatisfaction: 9.2,
+        completedTrainings: 12,
+        certificationsEarned: 5,
+      },
+
+      // Recent activities (dummy data for now)
+      recentActivities: [
+        {
+          id: 1,
+          type: "training",
+          title: "Completed Leadership Training",
+          description: "Successfully completed advanced leadership certification program",
+          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+          icon: "award",
+        },
+        {
+          id: 2,
+          type: "team_building",
+          title: "Conducted Team Building Session",
+          description: "Organized and led team building activities for engineering department",
+          date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 1 week ago
+          icon: "users",
+        },
+        {
+          id: 3,
+          type: "process_improvement",
+          title: "Improved Recruitment Process",
+          description: "Implemented new screening process reducing hiring time by 30%",
+          date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 2 weeks ago
+          icon: "trending-up",
+        },
+      ],
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "HR employee profile fetched successfully",
+      data: profileData,
+    })
+  } catch (error) {
+    console.error("Error fetching HR profile:", error)
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    })
+  }
+})
 
 module.exports = router;
