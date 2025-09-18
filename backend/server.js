@@ -8,6 +8,13 @@ const connectDB = require('./config/db'); // Import your existing DB connection
 const allEmployeeAuthRoute = require('./routes/AllEmployeeAuthRoute/login');
 const hrSectionRoutes = require('./routes/CeoRoutes/HrSection'); // HR Section routes for CEO dashboard
 
+
+const hrOverviewRoutes = require('./routes/HrRoutes/HrOverviewSection');
+const teamLeaderRoutes = require('./routes/HrRoutes/TeamLeaderSection');
+const accountantRoutes = require('./routes/HrRoutes/AccountantSection');
+const telecallerRoutes = require('./routes/HrRoutes/TeleCallerSection');
+const salesEmployeeRoutes = require('./routes/HrRoutes/SalesEmployeeSection');
+
 const app = express();
 
 // Connect to database
@@ -26,13 +33,17 @@ app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
 // Routes
-
 app.use('/api/employee', allEmployeeAuthRoute);
 
 // HR Section routes for CEO
 app.use('/api/ceo/hr', hrSectionRoutes); 
 
 
+app.use('/api/hr/overview', hrOverviewRoutes);
+app.use('/api/hr/team-leaders', teamLeaderRoutes);
+app.use('/api/hr/accountants', accountantRoutes);
+app.use('/api/hr/telecaller', telecallerRoutes);
+app.use('/api/hr/sales-employee', salesEmployeeRoutes);
 
 
 // Health check endpoint

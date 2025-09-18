@@ -85,4 +85,6 @@ const hrEmployeeSchema = new mongoose.Schema(
   },
 )
 
-module.exports = mongoose.model("HrEmployee", hrEmployeeSchema)
+module.exports =
+  mongoose.models.HrEmployee || mongoose.model("HrEmployee", hrEmployeeSchema);
+

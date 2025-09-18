@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const HrEmployee = require("../../models/CEO/HrEmployee");
-const HrBusinessData = require("../../models/CEO/HrBusinessData");
+const HrEmployee = require("../../models/HR/HrEmployee");
+const HrBusinessData = require("../../models/HR/HrBusinessData");
 const ceoAuth = require("./CeoAuthMiddlewear");
 
 const router = express.Router();
