@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs")
 const TeamLeaderEmployee = require("../../models/TEAMLEADER/TeamLeaderEmployee")
 const TeamLeaderBusinessData = require("../../models/TEAMLEADER/TeamLeaderBusinessData")
 const HrEmployee = require("../../models/HR/HrEmployee")
+const { authenticateToken } = require("./HrAuthMiddlewear");
 
 const router = express.Router()
 
@@ -30,7 +31,7 @@ router.get("/fetch-data", async (req, res) => {
 })
 
 // Hire new team leader
-router.post("/hire", async (req, res) => {
+router.post("/hire", authenticateToken, async (req, res) => {
   try {
     const {
       name,
@@ -39,7 +40,7 @@ router.post("/hire", async (req, res) => {
       password,
       aadhar,
       pan,
-      photoUrl, // <-- frontend should send the URL string here
+      photoUrl, 
       address,
       emergencyContact,
       bankAccount,
@@ -53,8 +54,9 @@ router.post("/hire", async (req, res) => {
       previousCompany,
       assignedZone,
       monthlyTarget,
-      referredBy,
     } = req.body;
+
+    const referredBy = req.user.id;
 
     // Check if email already exists
     const existingLeader = await TeamLeaderEmployee.findOne({ companyEmail: email });

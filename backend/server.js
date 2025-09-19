@@ -2,51 +2,59 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const connectDB = require('./config/db'); // Import your existing DB connection
+const connectDB = require('./config/db'); 
 
-// Import routes
+// Imported All Routes
 const allEmployeeAuthRoute = require('./routes/AllEmployeeAuthRoute/login');
-const hrSectionRoutes = require('./routes/CeoRoutes/HrSection'); // HR Section routes for CEO dashboard
+
+// CEO all routes
+const hrSectionRoutes = require('./routes/CeoRoutes/HrSection');
 
 
+// HR All Routes
 const hrOverviewRoutes = require('./routes/HrRoutes/HrOverviewSection');
 const teamLeaderRoutes = require('./routes/HrRoutes/TeamLeaderSection');
 const accountantRoutes = require('./routes/HrRoutes/AccountantSection');
 const telecallerRoutes = require('./routes/HrRoutes/TeleCallerSection');
 const salesEmployeeRoutes = require('./routes/HrRoutes/SalesEmployeeSection');
+const projectManagerRoutes = require('./routes/HrRoutes/ProjectManagerSection');
+
+
 
 const app = express();
-
-// Connect to database
 connectDB();
 
-// Middleware
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json({ limit: '10mb' })); // Increased limit for JSON data
-app.use(express.urlencoded({ extended: true, limit: '10mb' })); // For form data
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Serve uploaded files statically (if you still need this for other files)
 app.use('/uploads', express.static('uploads'));
 
-// Routes
+
+//All Routes end-points
 app.use('/api/employee', allEmployeeAuthRoute);
 
-// HR Section routes for CEO
+
+// CEO routes end-points
 app.use('/api/ceo/hr', hrSectionRoutes); 
 
 
+// HR routes end-points
 app.use('/api/hr/overview', hrOverviewRoutes);
 app.use('/api/hr/team-leaders', teamLeaderRoutes);
 app.use('/api/hr/accountants', accountantRoutes);
 app.use('/api/hr/telecaller', telecallerRoutes);
-app.use('/api/hr/sales-employee', salesEmployeeRoutes);
+app.use('/api/hr/sales-employees', salesEmployeeRoutes);
+app.use('/api/hr/project-manager', projectManagerRoutes);
 
 
-// Health check endpoint
+
+
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -55,7 +63,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Error handling middleware
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
