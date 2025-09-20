@@ -150,108 +150,36 @@ router.post("/hire", authenticateToken, async (req, res) => {
   }
 });
 
-// Get team leader details
-router.get("/fetch-data/:id", async (req, res) => {
-    try {
-        const { id } = req.params
 
-        const teamLeader = await TeamLeaderEmployee.findById(id)
-            .populate("businessData")
-            .populate("referredBy", "name email")
-            .select("-password")
+// Get project manager profile details
+router.get("/profile/:id", async (req, res) => {
+  try {
+    const { id } = req.params
 
-        if (!teamLeader) {
-            return res.status(404).json({
-                success: false,
-                message: "Team leader not found",
-            })
-        }
+    const projectManager = await SalesEmployeeEmployee.findById(id)
+      .populate("businessData")
+      .populate("referredBy", "name email")
+      .select("-password")
 
-        res.json({
-            success: true,
-            data: teamLeader,
-        })
-    } catch (error) {
-        console.error("Error fetching team leader:", error)
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch team leader details",
-            error: error.message,
-        })
+    if (!projectManager) {
+      return res.status(404).json({
+        success: false,
+        message: "Project manager not found",
+      })
     }
-})
 
-// Update team leader status
-router.patch("/fetch-data/:id/status", async (req, res) => {
-    try {
-        const { id } = req.params
-        const { status } = req.body
-
-        const updatedLeader = await TeamLeaderEmployee.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }
-        ).select("-password")
-
-        if (!updatedLeader) {
-            return res.status(404).json({
-                success: false,
-                message: "Team leader not found",
-            })
-        }
-
-        res.json({
-            success: true,
-            message: "Team leader status updated successfully",
-            data: updatedLeader,
-        })
-    } catch (error) {
-        console.error("Error updating team leader status:", error)
-        res.status(500).json({
-            success: false,
-            message: "Failed to update team leader status",
-            error: error.message,
-        })
-    }
-})
-
-// Get team leader statistics
-router.get("/team-leaders-stats", async (req, res) => {
-    try {
-        const totalLeaders = await TeamLeaderEmployee.countDocuments({ status: "active" })
-        const activeLeaders = await TeamLeaderEmployee.countDocuments({ status: "active" })
-        
-        const teamLeaders = await TeamLeaderEmployee.find({ status: "active" })
-            .populate("businessData")
-            .select("name businessData")
-
-        const totalTeamSize = teamLeaders.reduce((sum, leader) => 
-            sum + (leader.businessData?.teamSize || 0), 0
-        )
-        
-        const totalMonthlyTarget = teamLeaders.reduce((sum, leader) => 
-            sum + (leader.businessData?.monthlyTarget || 0), 0
-        )
-
-        res.json({
-            success: true,
-            data: {
-                totalLeaders,
-                activeLeaders,
-                totalTeamSize,
-                totalMonthlyTarget,
-                averageTeamSize: totalLeaders > 0 ? Math.round(totalTeamSize / totalLeaders) : 0,
-                averageTarget: totalLeaders > 0 ? Math.round(totalMonthlyTarget / totalLeaders) : 0
-            }
-        })
-    } catch (error) {
-        console.error("Error fetching team leader stats:", error)
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch team leader statistics",
-            error: error.message,
-        })
-    }
+    res.json({
+      success: true,
+      data: projectManager,
+    })
+  } catch (error) {
+    console.error("Error fetching project manager profile:", error)
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch project manager profile details",
+      error: error.message,
+    })
+  }
 })
 
 module.exports = router

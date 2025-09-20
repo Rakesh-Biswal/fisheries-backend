@@ -155,5 +155,36 @@ router.post("/hire", authenticateToken, async (req, res) => {
   }
 })
 
+// Get project manager profile details
+router.get("/profile/:id", async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const projectManager = await SalesEmployeeEmployee.findById(id)
+      .populate("businessData")
+      .populate("referredBy", "name email")
+      .select("-password")
+
+    if (!projectManager) {
+      return res.status(404).json({
+        success: false,
+        message: "Project manager not found",
+      })
+    }
+
+    res.json({
+      success: true,
+      data: projectManager,
+    })
+  } catch (error) {
+    console.error("Error fetching project manager profile:", error)
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch project manager profile details",
+      error: error.message,
+    })
+  }
+})
+
 
 module.exports = router
