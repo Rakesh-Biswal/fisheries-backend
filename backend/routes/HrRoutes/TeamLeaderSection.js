@@ -151,12 +151,11 @@ router.post("/hire", authenticateToken, async (req, res) => {
 });
 
 
-// Get project manager profile details
 router.get("/profile/:id", async (req, res) => {
   try {
     const { id } = req.params
 
-    const projectManager = await SalesEmployeeEmployee.findById(id)
+    const projectManager = await TeamLeaderEmployee.findById(id)
       .populate("businessData")
       .populate("referredBy", "name email")
       .select("-password")
@@ -164,7 +163,7 @@ router.get("/profile/:id", async (req, res) => {
     if (!projectManager) {
       return res.status(404).json({
         success: false,
-        message: "Project manager not found",
+        message: "Team Leader not found",
       })
     }
 
