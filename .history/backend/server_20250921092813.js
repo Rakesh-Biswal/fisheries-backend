@@ -18,18 +18,18 @@ const accountantRoutes = require('./routes/HrRoutes/AccountantSection');
 const telecallerRoutes = require('./routes/HrRoutes/TeleCallerSection');
 const salesEmployeeRoutes = require('./routes/HrRoutes/SalesEmployeeSection');
 const projectManagerRoutes = require('./routes/HrRoutes/ProjectManagerSection');
-const hiringRoutes = require('./routes/HrRoutes/HiringSection');
+app.use('/api/hr/hiring', hiringRoutes); 
 
 
 
 const app = express();
 connectDB();
 
+
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"], // allow both ports
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
-
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
@@ -52,7 +52,7 @@ app.use('/api/hr/accountants', accountantRoutes);
 app.use('/api/hr/telecaller', telecallerRoutes);
 app.use('/api/hr/sales-employees', salesEmployeeRoutes);
 app.use('/api/hr/project-manager', projectManagerRoutes);
-app.use('/api/hr/hiring', hiringRoutes);
+
 
 
 
