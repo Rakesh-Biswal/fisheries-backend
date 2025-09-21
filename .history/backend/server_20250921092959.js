@@ -52,7 +52,7 @@ app.use('/api/hr/accountants', accountantRoutes);
 app.use('/api/hr/telecaller', telecallerRoutes);
 app.use('/api/hr/sales-employees', salesEmployeeRoutes);
 app.use('/api/hr/project-manager', projectManagerRoutes);
-app.use('/api/hr/hiring', hiringRoutes);
+app.use('/api/hr/hiring', hiringRoutes); 
 
 
 

@@ -55,7 +55,6 @@ app.use('/api/hr/project-manager', projectManagerRoutes);
 app.use('/api/hr/hiring', hiringRoutes);
 
 
-
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,

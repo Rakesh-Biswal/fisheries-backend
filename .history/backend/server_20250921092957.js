@@ -18,6 +18,7 @@ const accountantRoutes = require('./routes/HrRoutes/AccountantSection');
 const telecallerRoutes = require('./routes/HrRoutes/TeleCallerSection');
 const salesEmployeeRoutes = require('./routes/HrRoutes/SalesEmployeeSection');
 const projectManagerRoutes = require('./routes/HrRoutes/ProjectManagerSection');
+
 const hiringRoutes = require('./routes/HrRoutes/HiringSection');
 
 
@@ -52,7 +53,7 @@ app.use('/api/hr/accountants', accountantRoutes);
 app.use('/api/hr/telecaller', telecallerRoutes);
 app.use('/api/hr/sales-employees', salesEmployeeRoutes);
 app.use('/api/hr/project-manager', projectManagerRoutes);
-app.use('/api/hr/hiring', hiringRoutes);
+app.use('/api/hr/hiring', hiringRoutes); 
 
 
 
