@@ -64,7 +64,23 @@ const jobApplicationSchema = new mongoose.Schema(
       enum: ["yes", "no"],
       required: true,
     },
-
+    stageHistory: [
+      {
+        stage: {
+          type: String,
+          enum: ["pending", "reviewed", "interview", "hired", "rejected"],
+          required: true,
+        },
+        date: {
+          type: Date,
+          default: Date.now,
+        },
+        note: {
+          type: String,
+          default: "",
+        },
+      },
+    ],
     // Work Experience
     workExperiences: [
       {

@@ -110,6 +110,52 @@ router.post("/submit", async (req, res) => {
   }
 });
 
+
+router.put("/:id/advance-status", async (req, res) => {
+  try {
+    const { status, stageNote } = req.body;
+
+    const application = await JobApplication.findById(req.params.id);
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: "Application not found",
+      });
+    }
+
+    // Create stage history if it doesn't exist
+    if (!application.stageHistory) {
+      application.stageHistory = [];
+    }
+
+    // Add current stage to history before updating
+    application.stageHistory.push({
+      stage: application.status,
+      date: new Date(),
+      note: stageNote || `Advanced to ${status}`,
+    });
+
+    // Update the status
+    application.status = status;
+    application.updatedAt = new Date();
+
+    await application.save();
+
+    res.json({
+      success: true,
+      message: "Application status advanced successfully",
+      data: application,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+
 // ✅ Get all job applications (for HR)
 router.get("/all", async (req, res) => {
   try {
