@@ -37,10 +37,38 @@ const jobApplicationSchema = new mongoose.Schema(
         "final_interview",
         "offer",
         "hired",
-        "rejected",
         "suspended",
+        "rejected",
       ],
       default: "pending",
+    },
+
+    // Post-hire information
+    postHireInfo: {
+      hireDate: { type: Date },
+      trainingStartDate: { type: Date },
+      trainingEndDate: { type: Date },
+      fieldWorkStartDate: { type: Date },
+      fieldWorkEndDate: { type: Date },
+      fieldWorkDays: [
+        {
+          day: { type: Number, min: 1, max: 7 },
+          date: { type: Date },
+          completed: { type: Boolean, default: false },
+          notes: { type: String },
+          rating: {
+            type: Number,
+            min: 0, // Changed from 1 to 0 to allow unrated days
+            max: 5,
+            default: 0, // Added default value
+          },
+          completedAt: { type: Date },
+        },
+      ],
+      tempEmploymentStartDate: { type: Date },
+      tempEmploymentEndDate: { type: Date },
+      suspensionReason: { type: String },
+      suspensionDate: { type: Date },
     },
 
     stageHistory: [
@@ -50,13 +78,14 @@ const jobApplicationSchema = new mongoose.Schema(
           enum: [
             "pending",
             "reviewed",
+            "phone_screen", // Added back phone_screen for backward compatibility
             "technical_test",
             "interview",
             "final_interview",
             "offer",
             "hired",
-            "rejected",
             "suspended",
+            "rejected",
           ],
           required: true,
         },
@@ -65,69 +94,6 @@ const jobApplicationSchema = new mongoose.Schema(
         changedBy: { type: String, default: "System" },
       },
     ],
-
-    // Training & Field Work Tracking (Only for hired candidates)
-    training: {
-      startDate: { type: Date },
-      endDate: { type: Date },
-      completed: { type: Boolean, default: false },
-      notes: { type: String },
-      trainer: { type: String },
-    },
-
-    fieldWork: {
-      startDate: { type: Date },
-      endDate: { type: Date },
-      totalDays: { type: Number, default: 7 },
-      completedDays: { type: Number, default: 0 },
-      dailyProgress: [
-        {
-          day: { type: Number, required: true }, // 1 to 7
-          date: { type: Date, required: true },
-          status: {
-            type: String,
-            enum: [
-              "pending",
-              "completed",
-              "absent",
-              "sick_leave",
-              "other_leave",
-            ],
-            default: "pending",
-          },
-          notes: { type: String },
-          hoursWorked: { type: Number, default: 8 },
-          supervisor: { type: String },
-          updatedAt: { type: Date, default: Date.now },
-        },
-      ],
-      overallPerformance: {
-        rating: { type: Number, min: 1, max: 5 },
-        feedback: { type: String },
-        evaluatedBy: { type: String },
-        evaluationDate: { type: Date },
-      },
-    },
-
-    // Suspension tracking
-    suspension: {
-      isSuspended: { type: Boolean, default: false },
-      suspendedDate: { type: Date },
-      suspensionReason: {
-        type: String,
-        enum: [
-          "poor_performance",
-          "attendance_issues",
-          "disciplinary",
-          "health_issues",
-          "voluntary_withdrawal",
-          "other",
-        ],
-      },
-      suspensionNotes: { type: String },
-      suspendedBy: { type: String },
-      reinstatementDate: { type: Date },
-    },
 
     // Work Experience
     workExperiences: [
@@ -181,7 +147,6 @@ const jobApplicationSchema = new mongoose.Schema(
 
     // Timestamps
     appliedDate: { type: Date, default: Date.now },
-    hiredDate: { type: Date },
   },
   { timestamps: true }
 );
@@ -190,23 +155,5 @@ const jobApplicationSchema = new mongoose.Schema(
 jobApplicationSchema.index({ jobId: 1, email: 1 });
 jobApplicationSchema.index({ status: 1 });
 jobApplicationSchema.index({ appliedDate: -1 });
-jobApplicationSchema.index({ hiredDate: -1 });
-
-// Method to check if field work is completed
-jobApplicationSchema.methods.isFieldWorkCompleted = function () {
-  return this.fieldWork.completedDays >= this.fieldWork.totalDays;
-};
-
-// Method to check if training is overdue
-jobApplicationSchema.methods.isTrainingOverdue = function () {
-  if (!this.training.endDate) return false;
-  return new Date() > this.training.endDate && !this.training.completed;
-};
-
-// Method to check if field work is overdue
-jobApplicationSchema.methods.isFieldWorkOverdue = function () {
-  if (!this.fieldWork.endDate) return false;
-  return new Date() > this.fieldWork.endDate && !this.isFieldWorkCompleted();
-};
 
 module.exports = mongoose.model("JobApplication", jobApplicationSchema);
