@@ -8,7 +8,6 @@ router.post("/submit", async (req, res) => {
   try {
     const {
       jobId,
-      // Personal Information
       firstName,
       lastName,
       email,
@@ -21,21 +20,11 @@ router.post("/submit", async (req, res) => {
       zipCode,
       linkedIn,
       portfolio,
-
-      // Work Authorization
       workAuthorized,
       visaSponsorship,
-
-      // Work Experience
       workExperiences,
-
-      // Education
       educations,
-
-      // References
       references,
-
-      // Additional fields
       skills,
       employmentPreferences,
       documents,
@@ -44,7 +33,6 @@ router.post("/submit", async (req, res) => {
       consentAgreement,
     } = req.body;
 
-    // Check if job exists
     const job = await Hiring.findById(jobId);
     if (!job) {
       return res.status(404).json({
@@ -53,7 +41,6 @@ router.post("/submit", async (req, res) => {
       });
     }
 
-    // Check if user has already applied for this job
     const existingApplication = await JobApplication.findOne({
       jobId,
       email,
@@ -66,7 +53,6 @@ router.post("/submit", async (req, res) => {
       });
     }
 
-    // Create new application
     const newApplication = new JobApplication({
       jobId,
       firstName,
@@ -110,7 +96,7 @@ router.post("/submit", async (req, res) => {
   }
 });
 
-
+// ✅ Advance application status with proper stage tracking
 router.put("/:id/advance-status", async (req, res) => {
   try {
     const { status, stageNote } = req.body;
@@ -124,16 +110,36 @@ router.put("/:id/advance-status", async (req, res) => {
       });
     }
 
-    // Create stage history if it doesn't exist
+    // Validate status transition
+    const validTransitions = {
+      pending: ["reviewed", "rejected"],
+      reviewed: ["phone_screen", "rejected"],
+      phone_screen: ["technical_test", "rejected"],
+      technical_test: ["interview", "rejected"],
+      interview: ["final_interview", "rejected"],
+      final_interview: ["offer", "rejected"],
+      offer: ["hired", "rejected"],
+      hired: [], // No transitions after hired
+      rejected: [], // No transitions after rejected
+    };
+
+    const currentStatus = application.status;
+    if (!validTransitions[currentStatus]?.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status transition from ${currentStatus} to ${status}`,
+      });
+    }
+
+    // Update stage history
     if (!application.stageHistory) {
       application.stageHistory = [];
     }
 
-    // Add current stage to history before updating
     application.stageHistory.push({
-      stage: application.status,
+      stage: status,
       date: new Date(),
-      note: stageNote || `Advanced to ${status}`,
+      note: stageNote || `Status changed to ${status}`,
     });
 
     // Update the status
@@ -144,7 +150,7 @@ router.put("/:id/advance-status", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Application status advanced successfully",
+      message: "Application status updated successfully",
       data: application,
     });
   } catch (err) {
@@ -155,6 +161,49 @@ router.put("/:id/advance-status", async (req, res) => {
   }
 });
 
+// ✅ Reject application
+router.put("/:id/reject", async (req, res) => {
+  try {
+    const { rejectionReason } = req.body;
+
+    const application = await JobApplication.findById(req.params.id);
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: "Application not found",
+      });
+    }
+
+    // Update stage history
+    if (!application.stageHistory) {
+      application.stageHistory = [];
+    }
+
+    application.stageHistory.push({
+      stage: "rejected",
+      date: new Date(),
+      note: rejectionReason || "Application rejected",
+    });
+
+    // Update the status
+    application.status = "rejected";
+    application.updatedAt = new Date();
+
+    await application.save();
+
+    res.json({
+      success: true,
+      message: "Application rejected successfully",
+      data: application,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
 
 // ✅ Get all job applications (for HR)
 router.get("/all", async (req, res) => {
@@ -223,16 +272,12 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ✅ Update application status
+// ✅ Update application status (general)
 router.put("/:id/status", async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, note } = req.body;
 
-    const application = await JobApplication.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const application = await JobApplication.findById(req.params.id);
 
     if (!application) {
       return res.status(404).json({
@@ -240,6 +285,22 @@ router.put("/:id/status", async (req, res) => {
         error: "Application not found",
       });
     }
+
+    // Update stage history
+    if (!application.stageHistory) {
+      application.stageHistory = [];
+    }
+
+    application.stageHistory.push({
+      stage: status,
+      date: new Date(),
+      note: note || `Status changed to ${status}`,
+    });
+
+    application.status = status;
+    application.updatedAt = new Date();
+
+    await application.save();
 
     res.json({
       success: true,
