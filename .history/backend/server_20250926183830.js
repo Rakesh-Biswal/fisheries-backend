@@ -20,7 +20,7 @@ const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
 const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 // Add this with your other HR routes imports
-const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
+const attendanceCalendarRoutes = require("./routes/H/AttendanceCalendarRoutes");
 
 
 const app = express();
@@ -53,7 +53,6 @@ app.use("/api/hr/sales-employees", salesEmployeeRoutes);
 app.use("/api/hr/project-manager", projectManagerRoutes);
 app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
-app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
