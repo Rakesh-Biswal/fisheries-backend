@@ -19,9 +19,8 @@ const telecallerRoutes = require("./routes/HrRoutes/TeleCallerSection");
 const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
 const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
-// Add this with your other HR routes imports
-const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
-
+// ✅ NEW: Import Holiday Routes
+const holidayRoutes = require("./routes/HrRoutes/holidayRoutes"); // NEW LINE
 
 const app = express();
 connectDB();
@@ -53,7 +52,9 @@ app.use("/api/hr/sales-employees", salesEmployeeRoutes);
 app.use("/api/hr/project-manager", projectManagerRoutes);
 app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
-app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
+
+// ✅ NEW: HR Holiday route endpoint
+app.use("/api/hr/holidays", holidayRoutes); // NEW LINE
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -83,5 +84,8 @@ app.listen(PORT, () => {
   );
   console.log(
     `✅ CEO HR Dashboard available at: http://localhost:${PORT}/api/ceo/hr/dashboard`
+  );
+    console.log(
+    `✅ HR Holiday Management available at: http://localhost:${PORT}/api/hr/holidays` // NEW LOG
   );
 });
