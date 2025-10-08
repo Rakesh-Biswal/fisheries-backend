@@ -165,7 +165,7 @@ router.post('/signin', async (req, res) => {
           photo: user.photo, // Include photo for Team Leader
           empCode: user.empCode // Include employee code
         },
-        redirectTo: "/dashboard/teamleader/overview" // Redirect to Team Leader dashboard
+        redirectTo: "/dashboard/teamleader" // Redirect to Team Leader dashboard
       });
     }
 

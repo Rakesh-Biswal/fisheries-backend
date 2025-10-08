@@ -47,12 +47,13 @@ const tlTaskSchema = new mongoose.Schema({
     default: Date.now
   },
   
-  // Status tracking
+  // Status tracking(filled by team leader)
   status: {
     type: String,
     enum: ['pending', 'in-progress', 'completed', 'overdue', 'cancelled'],
     default: 'pending'
   },
+  // progress tracking(filled by team leader)
   progress: {
     type: Number,
     min: 0,
