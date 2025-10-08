@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Ceo = require('../../models/CEO/CeoPi'); 
 const HrEmployee = require('../../models/HR/HrEmployee'); 
+const TeamLeaderEmployee = require('../../models/TEAMLEADER/TeamLeaderEmployee'); // Updated import
 const router = express.Router();
 
 // Employee sign-in with email and password
@@ -111,6 +112,60 @@ router.post('/signin', async (req, res) => {
           photo: user.photo // Include photo for HR
         },
         redirectTo: "/dashboard/hr/overview" // Redirect to HR dashboard
+      });
+    }
+
+    // Check if it's a Team Leader (using TeamLeaderEmployee model)
+    user = await TeamLeaderEmployee.findOne({ companyEmail: email });
+
+    if (user) {
+      // Verify Team Leader password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          error: "Invalid credentials"
+        });
+      }
+
+      // Check if Team Leader is active
+      if (user.status !== "active") {
+        return res.status(401).json({
+          success: false,
+          error: "Your account is deactivated. Please contact administrator."
+        });
+      }
+
+      const token = jwt.sign(
+        {
+          id: user._id,
+          email: user.companyEmail,
+          role: "teamleader", // Set role as teamleader
+          name: user.name,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      res.cookie("EmployeeToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production" ? true : false,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return res.json({
+        success: true,
+        message: "Team Leader sign in successful",
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.companyEmail,
+          role: "teamleader",
+          photo: user.photo, // Include photo for Team Leader
+          empCode: user.empCode // Include employee code
+        },
+        redirectTo: "/dashboard/teamleader/overview" // Redirect to Team Leader dashboard
       });
     }
 

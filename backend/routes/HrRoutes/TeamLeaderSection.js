@@ -33,7 +33,7 @@ router.get("/team-leader/fetch-data", async (req, res) => {
 })
 
 // Hire new team leader
-router.post("/team-leader/hire", authenticateToken, async (req, res) => {
+router.post("/hire", authenticateToken, async (req, res) => {
   try {
     const {
       name,

@@ -10,6 +10,7 @@ const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
 
 // CEO all routes
 const hrSectionRoutes = require("./routes/CeoRoutes/HrSection");
+const ceoTaskRoutes = require("./routes/CeoRoutes/TasksMeetingsSection");
 
 // HR All Routes
 const hrOverviewRoutes = require("./routes/HrRoutes/HrOverviewSection");
@@ -19,8 +20,11 @@ const telecallerRoutes = require("./routes/HrRoutes/TeleCallerSection");
 const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
 const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
-// Add this with your other HR routes imports
+const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
+
+//TL All Routes
+const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
 
 
 const app = express();
@@ -43,6 +47,7 @@ app.use("/api/employee", allEmployeeAuthRoute);
 
 // CEO routes end-points
 app.use("/api/ceo/hr", hrSectionRoutes);
+app.use("/api/ceo/tasks-meetings", ceoTaskRoutes);
 
 // HR routes end-points
 app.use("/api/hr/overview", hrOverviewRoutes);
@@ -54,6 +59,12 @@ app.use("/api/hr/project-manager", projectManagerRoutes);
 app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
 app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
+app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
+
+
+//TL routes end-points
+app.use("/api/tl/tasks-meetings", TLTaskRoutes);
+
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
