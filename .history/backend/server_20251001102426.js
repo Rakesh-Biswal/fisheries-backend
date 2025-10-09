@@ -10,7 +10,6 @@ const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
 
 // CEO all routes
 const hrSectionRoutes = require("./routes/CeoRoutes/HrSection");
-const ceoTaskRoutes = require("./routes/CeoRoutes/TasksMeetingsSection");
 
 // HR All Routes
 const hrOverviewRoutes = require("./routes/HrRoutes/HrOverviewSection");
@@ -20,13 +19,12 @@ const telecallerRoutes = require("./routes/HrRoutes/TeleCallerSection");
 const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
 const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
-const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
+
+// Add this with your other HR routes imports
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
+
+// ✅ FIX: Import Team Leader Meeting Routes correctly
 const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
-
-//TL All Routes
-const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
-
 
 const app = express();
 connectDB();
@@ -43,12 +41,17 @@ app.use(cookieParser());
 
 app.use("/uploads", express.static("uploads"));
 
+// ✅ ADD THIS: Request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 //All Routes end-points
 app.use("/api/employee", allEmployeeAuthRoute);
 
 // CEO routes end-points
 app.use("/api/ceo/hr", hrSectionRoutes);
-app.use("/api/ceo/tasks-meetings", ceoTaskRoutes);
 
 // HR routes end-points
 app.use("/api/hr/overview", hrOverviewRoutes);
@@ -60,17 +63,27 @@ app.use("/api/hr/project-manager", projectManagerRoutes);
 app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
 app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
-app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
 
-
-//TL routes end-points
-app.use("/api/tl/tasks-meetings", TLTaskRoutes);
-
-
-
-//Team leader
+// ✅ FIX: Team leader routes - Use correct variable name
 app.use("/api/team-leader/meetings", teamLeaderMeetingRoutes);
 
+// ✅ ADD: Test route to verify API is working
+app.get("/api/test", (req, res) => {
+  res.json({ 
+    success: true, 
+    message: "API is working!",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ✅ ADD: Specific test route for meetings
+app.get("/api/team-leader/meetings/test", (req, res) => {
+  res.json({ 
+    success: true, 
+    message: "Meetings API endpoint is working!",
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -80,25 +93,34 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Enhanced error handling for 404
+app.use('*', (req, res) => {
+  console.log(`❌ 404 - Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.method} ${req.originalUrl} not found`,
+    availableRoutes: [
+      '/api/health',
+      '/api/test',
+      '/api/team-leader/meetings',
+      '/api/team-leader/meetings/test'
+    ]
+  });
+});
+
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('🚨 Global Error Handler:', err);
   res.status(500).json({
     success: false,
     message: "Something went wrong!",
-    error:
-      process.env.NODE_ENV === "development"
-        ? err.message
-        : "Internal server error",
+    error: process.env.NODE_ENV === "development" ? err.message : "Internal server error",
   });
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(
-    `✅ Health check available at: http://localhost:${PORT}/api/health`
-  );
-  console.log(
-    `✅ CEO HR Dashboard available at: http://localhost:${PORT}/api/ceo/hr/dashboard`
-  );
+  console.log(`✅ Health check: http://localhost:${PORT}/api/health`);
+  console.log(`✅ Test route: http://localhost:${PORT}/api/test`);
+  console.log(`✅ Meetings test: http://localhost:${PORT}/api/team-leader/meetings/test`);
 });
