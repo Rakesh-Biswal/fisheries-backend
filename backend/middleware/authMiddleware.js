@@ -1,4 +1,56 @@
 const jwt = require('jsonwebtoken');
+const SalesEmployeeEmployee = require("../models/SALESEMPLOYEE/SalesEmployeeEmployee");
+
+
+const SalesEmployeeAuth = async (req, res, next) => {
+  try {
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No token provided",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Check if it's a sales employee
+    if (decoded.role !== "sales-employee") {
+      return res.status(401).json({
+        success: false,
+        message: "Access denied. Sales employee only.",
+      });
+    }
+
+    const salesEmployee = await SalesEmployeeEmployee.findById(
+      decoded.id
+    ).select("-password");
+
+    if (!salesEmployee || salesEmployee.status !== "active") {
+      return res.status(401).json({
+        success: false,
+        message: "Sales employee not found or inactive",
+      });
+    }
+
+    req.salesEmployee = {
+      id: salesEmployee._id,
+      name: salesEmployee.name,
+      email: salesEmployee.companyEmail,
+      role: salesEmployee.role,
+    };
+
+    next();
+  } catch (error) {
+    console.error("Sales employee auth error:", error);
+    res.status(401).json({
+      success: false,
+      message: "Invalid token",
+    });
+  }
+};
+
 
 // Simple authentication middleware for testing
 const authenticateToken = async (req, res, next) => {
@@ -32,4 +84,7 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticateToken };
+module.exports = {
+  authenticateToken,
+  SalesEmployeeAuth,
+};

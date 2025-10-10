@@ -1,9 +1,10 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const connectDB = require('./config/db'); 
+require("dotenv").config({ path: __dirname + "/.env" });
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const connectDB = require("./config/db");
 const jobApplicationRoutes = require("./routes/ClientRoutes/JobApplicationRoute");
+const salesEmployeeTaskRoutes = require("./routes/SalesEmployeeRoutes/tasks");
 
 // Imported All Routes
 const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
@@ -25,8 +26,7 @@ const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
 const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
 
 //TL All Routes
-const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
-
+const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
 
 const app = express();
 connectDB();
@@ -61,16 +61,13 @@ app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
 app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
-
+app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
 
 //TL routes end-points
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 
-
-
 //Team leader
 app.use("/api/team-leader/meetings", teamLeaderMeetingRoutes);
-
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
