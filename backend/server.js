@@ -50,6 +50,7 @@ app.use("/api/employee", allEmployeeAuthRoute);
 // CEO routes end-points
 app.use("/api/ceo/hr", hrSectionRoutes);
 app.use("/api/ceo/tasks-meetings", ceoTaskRoutes);
+app.use("/api/ceo/profile", require("./routes/CeoRoutes/CeoProfileSection"));
 
 // HR routes end-points
 app.use("/api/hr/overview", hrOverviewRoutes);
