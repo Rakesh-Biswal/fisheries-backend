@@ -235,6 +235,130 @@ router.get("/task-stats", SalesEmployeeAuth, async (req, res) => {
   }
 });
 
+router.get("/tasks-history", SalesEmployeeAuth, async (req, res) => {
+  try {
+    const salesEmployeeId = req.salesEmployee.id;
+    const { month, year } = req.query;
+
+    console.log(
+      `📅 Fetching tasks history for sales employee: ${salesEmployeeId}`
+    );
+
+    // Calculate date range for the requested month/year
+    const currentDate = new Date();
+    const targetMonth = month ? parseInt(month) : currentDate.getMonth() + 1;
+    const targetYear = year ? parseInt(year) : currentDate.getFullYear();
+
+    const startDate = new Date(targetYear, targetMonth - 1, 1);
+    const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+
+    console.log(`📅 Date range: ${startDate} to ${endDate}`);
+
+    // Get all tasks with responses (both completed and with responses)
+    const tasks = await TLTask.find({
+      assignedTo: salesEmployeeId,
+      $or: [
+        { status: "completed" },
+        { "response.submittedAt": { $exists: true, $ne: null } },
+      ],
+    })
+      .populate("assignedBy", "name photo companyEmail")
+      .populate("originalTask", "title description")
+      .sort({ "response.submittedAt": -1, assignmentDate: -1 })
+      .select(
+        "title description deadline priority status response assignedBy assignmentDate"
+      );
+
+    console.log(`✅ Found ${tasks.length} historical tasks`);
+
+    // Filter tasks by date range on the backend side
+    const filteredTasks = tasks.filter((task) => {
+      const taskDate = task.response?.submittedAt || task.assignmentDate;
+      return taskDate >= startDate && taskDate <= endDate;
+    });
+
+    console.log(`📅 ${filteredTasks.length} tasks in date range`);
+
+    // Group tasks by date
+    const tasksByDate = {};
+
+    filteredTasks.forEach((task) => {
+      // Use response submission date if available, otherwise use assignment date
+      const taskDate = task.response?.submittedAt || task.assignmentDate;
+      const dateKey = new Date(taskDate).toDateString();
+
+      if (!tasksByDate[dateKey]) {
+        tasksByDate[dateKey] = {
+          date: taskDate,
+          tasks: [],
+        };
+      }
+
+      tasksByDate[dateKey].tasks.push({
+        _id: task._id,
+        title: task.title,
+        description: task.description,
+        deadline: task.deadline,
+        priority: task.priority,
+        status: task.status,
+        assignedBy: {
+          _id: task.assignedBy._id,
+          name: task.assignedBy.name,
+          photo: task.assignedBy.photo,
+          email: task.assignedBy.companyEmail,
+        },
+        response: task.response || null,
+        hasResponse: !!task.response?.submittedAt,
+        submittedAt: task.response?.submittedAt,
+        completionPercentage: task.response?.completionPercentage || 0,
+        workStatus: task.response?.workStatus || "not-responded",
+      });
+    });
+
+    // Convert to array and sort by date (newest first)
+    const groupedTasks = Object.values(tasksByDate).sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+
+    // Get unique months for navigation
+    const monthSet = new Set();
+    tasks.forEach((task) => {
+      const taskDate = task.response?.submittedAt || task.assignmentDate;
+      const year = taskDate.getFullYear();
+      const month = taskDate.getMonth() + 1;
+      monthSet.add(`${year}-${month}`);
+    });
+
+    const uniqueMonths = Array.from(monthSet)
+      .map((dateStr) => {
+        const [year, month] = dateStr.split("-").map(Number);
+        return { year, month, count: 1 };
+      })
+      .sort((a, b) => {
+        if (a.year !== b.year) return b.year - a.year;
+        return b.month - a.month;
+      });
+
+    res.json({
+      success: true,
+      data: {
+        tasks: groupedTasks,
+        currentMonth: targetMonth,
+        currentYear: targetYear,
+        availableMonths: uniqueMonths,
+      },
+      message: `Found ${groupedTasks.length} days with tasks`,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching tasks history:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch tasks history",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
 // Get task details by ID
 router.get("/:id", SalesEmployeeAuth, async (req, res) => {
   try {
