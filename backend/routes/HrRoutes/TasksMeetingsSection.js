@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const CeoTask = require('../../models/CEO/CeoTask');
 const HrTask = require('../../models/HR/HrTask');
 const TeamLeader = require('../../models/TEAMLEADER/TeamLeaderEmployee');
-const { authenticateToken } = require('./HrAuthMiddlewear');
+const authenticateToken = require('./HrAuthMiddlewear');
 
 // Get assigned CEO tasks for HR
 router.get('/assigned-tasks', authenticateToken, async (req, res) => {
