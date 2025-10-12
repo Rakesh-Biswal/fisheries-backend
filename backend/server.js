@@ -11,10 +11,11 @@ const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
 // CEO all routes
 const hrSectionRoutes = require("./routes/CeoRoutes/HrSection");
 const ceoTaskRoutes = require("./routes/CeoRoutes/TasksMeetingsSection");
+const CeoProfileSection= require("./routes/CeoRoutes/CeoProfileSection");
+const ceoMeetingRoutes= require("./routes/CeoRoutes/MeetingRoutes");
 
 // HR All Routes
 const hrOverviewRoutes = require("./routes/HrRoutes/HrOverviewSection");
-const hrProfileRoutes=require("./routes/HrRoutes/HrProfileSection")
 const teamLeaderRoutes = require("./routes/HrRoutes/TeamLeaderSection");
 const accountantRoutes = require("./routes/HrRoutes/AccountantSection");
 const telecallerRoutes = require("./routes/HrRoutes/TeleCallerSection");
@@ -24,10 +25,13 @@ const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
 const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
+const hrProfileRoutes=require("./routes/HrRoutes/HrProfileSection")
 
 
 //TL All Routes
 const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
+const TLMeetingRoutes= require("./routes/TeamLeaderRoutes/MeetingRoutes")
+const TLProfileRoutes=require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection")
 
 
 const app = express();
@@ -51,6 +55,9 @@ app.use("/api/employee", allEmployeeAuthRoute);
 // CEO routes end-points
 app.use("/api/ceo/hr", hrSectionRoutes);
 app.use("/api/ceo/tasks-meetings", ceoTaskRoutes);
+app.use("/api/ceo/meetings", ceoMeetingRoutes);
+app.use("/api/ceo/profile", CeoProfileSection);
+
 
 // HR routes end-points
 app.use("/api/hr/overview", hrOverviewRoutes);
@@ -66,8 +73,12 @@ app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
 app.use("/api/hr/meetings", MeetingRoutes);
 
+
 // TL routes end-points
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
+app.use("/api/tl/meetings", TLMeetingRoutes);
+app.use("/api/tl/profile", TLProfileRoutes);
+
 
 
 app.get("/api/health", (req, res) => {

@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const HrEmployee = require('../../models/HR/HrEmployee');
 const HrBusinessData = require('../../models/HR/HrBusinessData');
-const {authenticateToken} = require('./HrAuthMiddlewear');
+const authenticateToken = require('./HrAuthMiddlewear');
 const bcrypt = require('bcryptjs');
 
 // Get HR profile data
