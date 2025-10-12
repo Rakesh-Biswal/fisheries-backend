@@ -22,13 +22,16 @@ const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
-const hrMeetingRoutes = require("./routes/HrRoutes/MeetingRoutes"); // ✅ This was missing
+const hrMeetingRoutes = require("/routes); // Add this line
 
 // TL All Routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
 
-const ceoMeetingRoutes = require("./routes/CeoRoutes/MeetingRoutes");
+// Team leader
 const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
+
+// Universal Meeting Routes
+const meetingRoutes = require("./routes/Meeting/meetingRoutes");
 
 const app = express();
 connectDB();
@@ -63,17 +66,17 @@ app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
 app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
-app.use("/api/hr/meetings", hrMeetingRoutes); // ✅ Add this line
+app.use("/api/hr/meetings", hrMeetingRoutes); // Add this line
 
 // TL routes end-points
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 
+// Team leader
+app.use("/api/team-leader/meetings", teamLeaderMeetingRoutes);
 
+// Universal Meeting Routes
+app.use("/api/meetings", meetingRoutes);
 
-
-
-app.use("/api/ceo/meetings", ceoMeetingRoutes);
-app.use("/api/tl/meetings", teamLeaderMeetingRoutes);
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,

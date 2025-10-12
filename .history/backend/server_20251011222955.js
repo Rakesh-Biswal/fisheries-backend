@@ -27,9 +27,6 @@ const hrMeetingRoutes = require("./routes/HrRoutes/MeetingRoutes"); // ✅ This 
 // TL All Routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
 
-const ceoMeetingRoutes = require("./routes/CeoRoutes/MeetingRoutes");
-const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
-
 const app = express();
 connectDB();
 
@@ -70,10 +67,14 @@ app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 
 
 
+const ceoMeetingRoutes = require("./routes/CeoRoutes/MeetingRoutes");
+const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
+const projectManagerMeetingRoutes = require("./routes/");
+const accountantMeetingRoutes = require("./routes/AccountantRoutes/MeetingRoutes");
+const telecallerMeetingRoutes = require("./routes/TelecallerRoutes/MeetingRoutes");
+const salesMeetingRoutes = require("./routes/SalesRoutes/MeetingRoutes");
 
 
-app.use("/api/ceo/meetings", ceoMeetingRoutes);
-app.use("/api/tl/meetings", teamLeaderMeetingRoutes);
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,

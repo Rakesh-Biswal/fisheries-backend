@@ -27,9 +27,6 @@ const hrMeetingRoutes = require("./routes/HrRoutes/MeetingRoutes"); // ✅ This 
 // TL All Routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
 
-const ceoMeetingRoutes = require("./routes/CeoRoutes/MeetingRoutes");
-const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
-
 const app = express();
 connectDB();
 
@@ -67,8 +64,6 @@ app.use("/api/hr/meetings", hrMeetingRoutes); // ✅ Add this line
 
 // TL routes end-points
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
-
-
 
 
 

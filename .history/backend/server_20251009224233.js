@@ -22,13 +22,10 @@ const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
-const hrMeetingRoutes = require("./routes/HrRoutes/MeetingRoutes"); // ✅ This was missing
+const hrMeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
 
 // TL All Routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
-
-const ceoMeetingRoutes = require("./routes/CeoRoutes/MeetingRoutes");
-const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
 
 const app = express();
 connectDB();
@@ -68,12 +65,6 @@ app.use("/api/hr/meetings", hrMeetingRoutes); // ✅ Add this line
 // TL routes end-points
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 
-
-
-
-
-app.use("/api/ceo/meetings", ceoMeetingRoutes);
-app.use("/api/tl/meetings", teamLeaderMeetingRoutes);
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,

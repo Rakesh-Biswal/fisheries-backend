@@ -26,6 +26,4 @@ router.get("/fetch-all", (req, res) => {
   }
 });
 
-
-
 module.exports = router;
