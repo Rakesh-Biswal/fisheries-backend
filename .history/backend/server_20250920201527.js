@@ -42,7 +42,7 @@ app.use("/api/ceo/hr", hrSectionRoutes);
 
 // HR routes end-points
 app.use("/api/hr/overview", hrOverviewRoutes);
-app.use("/api/hr/team-leaders", teamLeaderRoutes);
+app.use("/api/hr/teamleaders", teamLeaderRoutes);
 app.use("/api/hr/accountants", accountantRoutes);
 app.use("/api/hr/telecaller", telecallerRoutes);
 app.use("/api/hr/sales-employees", salesEmployeeRoutes);

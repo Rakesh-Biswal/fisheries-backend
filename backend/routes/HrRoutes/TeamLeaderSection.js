@@ -5,7 +5,7 @@ const TeamLeaderBusinessData = require("../../models/TEAMLEADER/TeamLeaderBusine
 const Team = require("../../models/TEAMLEADER/TeamSchema")
 const HrEmployee = require("../../models/HR/HrEmployee")
 const SalesEmployee = require("../../models/SALESEMPLOYEE/SalesEmployeeEmployee")
-const { authenticateToken } = require("./HrAuthMiddlewear");
+const authenticateToken = require("./HrAuthMiddlewear");
 
 const router = express.Router()
 

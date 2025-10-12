@@ -23,10 +23,11 @@ const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
+const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
+
 
 //TL All Routes
 const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
-const TLProfileRoutes= require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection")
 
 
 const app = express();
@@ -44,13 +45,12 @@ app.use(cookieParser());
 
 app.use("/uploads", express.static("uploads"));
 
-//All Routes end-points
+// All Routes end-points
 app.use("/api/employee", allEmployeeAuthRoute);
 
 // CEO routes end-points
 app.use("/api/ceo/hr", hrSectionRoutes);
 app.use("/api/ceo/tasks-meetings", ceoTaskRoutes);
-app.use("/api/ceo/profile", require("./routes/CeoRoutes/CeoProfileSection"));
 
 // HR routes end-points
 app.use("/api/hr/overview", hrOverviewRoutes);
@@ -64,11 +64,10 @@ app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
 app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
+app.use("/api/hr/meetings", MeetingRoutes);
 
-
-//TL routes end-points
+// TL routes end-points
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
-app.use("/api/tl/profile", TLProfileRoutes);
 
 
 app.get("/api/health", (req, res) => {
@@ -99,5 +98,8 @@ app.listen(PORT, () => {
   );
   console.log(
     `✅ CEO HR Dashboard available at: http://localhost:${PORT}/api/ceo/hr/dashboard`
+  );
+  console.log(
+    `✅ HR Meetings available at: http://localhost:${PORT}/api/hr/meetings`
   );
 });

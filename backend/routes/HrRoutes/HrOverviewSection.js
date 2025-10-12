@@ -1,6 +1,6 @@
 const express = require("express");
 const HrEmployee = require("../../models/HR/HrEmployee");
-const { authenticateToken } = require("./HrAuthMiddlewear");
+const authenticateToken = require("./HrAuthMiddlewear");
 
 const router = express.Router();
 
