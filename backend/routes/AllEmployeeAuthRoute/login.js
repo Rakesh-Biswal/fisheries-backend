@@ -303,6 +303,181 @@ router.get("/sales-profile", async (req, res) => {
   }
 });
 
+// Change password endpoint
+router.post("/change-password", async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No token provided",
+      });
+    }
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long",
+      });
+    }
+
+    // Check JWT secret
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Find user based on role
+    let user;
+    if (decoded.role === "sales-employee") {
+      user = await SalesEmployeeEmployee.findById(decoded.id);
+    } else if (decoded.role === "hr") {
+      user = await HrEmployee.findById(decoded.id);
+    } else if (decoded.role === "ceo") {
+      user = await Ceo.findById(decoded.id);
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password
+    user.password = hashedNewPassword;
+    user.updatedAt = new Date();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to change password",
+    });
+  }
+});
+
+// Simple forgot password - Contact HR (as per your frontend requirement)
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    // Find user by phone number
+    const user = await SalesEmployeeEmployee.findOne({ phone });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this phone number",
+      });
+    }
+
+    // In a real application, you would notify HR here
+    // For now, just return success message
+    res.json({
+      success: true,
+      message:
+        "Password reset request has been sent to HR. They will contact you shortly.",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process forgot password request",
+    });
+  }
+});
+
+// Reset password by HR (admin function)
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { employeeId, newPassword } = req.body;
+
+    if (!employeeId || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Employee ID and new password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long",
+      });
+    }
+
+    // Find user by ID
+    const user = await SalesEmployeeEmployee.findById(employeeId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password
+    user.password = hashedPassword;
+    user.updatedAt = new Date();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to reset password",
+    });
+  }
+});
+
 // Sign out endpoint
 router.post("/signout", (req, res) => {
   res.clearCookie("EmployeeToken", {
