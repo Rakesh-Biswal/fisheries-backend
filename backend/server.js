@@ -32,6 +32,7 @@ const hrProfileRoutes=require("./routes/HrRoutes/HrProfileSection")
 const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
 const TLMeetingRoutes= require("./routes/TeamLeaderRoutes/MeetingRoutes")
 const TLProfileRoutes=require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection")
+const TLAttendanceRoutes=require("./routes/TeamLeaderRoutes/attendance")
 
 
 const app = express();
@@ -78,6 +79,7 @@ app.use("/api/hr/meetings", MeetingRoutes);
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 app.use("/api/tl/meetings", TLMeetingRoutes);
 app.use("/api/tl/profile", TLProfileRoutes);
+app.use("/api/tl/attendance", TLAttendanceRoutes);
 
 
 
@@ -104,13 +106,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(
-    `✅ Health check available at: http://localhost:${PORT}/api/health`
-  );
-  console.log(
-    `✅ CEO HR Dashboard available at: http://localhost:${PORT}/api/ceo/hr/dashboard`
-  );
-  console.log(
-    `✅ HR Meetings available at: http://localhost:${PORT}/api/hr/meetings`
-  );
 });
