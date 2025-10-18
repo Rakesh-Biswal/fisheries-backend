@@ -32,6 +32,7 @@ const hrProfileRoutes=require("./routes/HrRoutes/HrProfileSection")
 const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
 const TLMeetingRoutes= require("./routes/TeamLeaderRoutes/MeetingRoutes")
 const TLProfileRoutes=require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection")
+const TLAttendanceRoutes=require("./routes/TeamLeaderRoutes/attendance")
 
 
 const app = express();
@@ -78,6 +79,7 @@ app.use("/api/hr/meetings", MeetingRoutes);
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 app.use("/api/tl/meetings", TLMeetingRoutes);
 app.use("/api/tl/profile", TLProfileRoutes);
+app.use("/api/tl/attendance", TLAttendanceRoutes);
 
 
 
