@@ -5,40 +5,31 @@ const attendanceSchema = new mongoose.Schema({
   // Employee reference
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: true,
     refPath: 'employeeModel'
   },
   
   employeeModel: {
     type: String,
-    required: true,
     enum: ['TeamLeaderEmployee', 'HrEmployee', 'AccountantEmployee', 'TeleCallerEmployee']
   },
 
-  // Personal info fields that might be required
   name: {
     type: String,
-    required: false // Make optional since we have employee reference
   },
   
   department: {
     type: String,
-    required: false, // Make optional
-    enum: ['Team Leader', 'HR', 'Accountant', 'Tele Caller', 'Field Executive'],
     default: 'Team Leader'
   },
 
-  // Date and time
   date: {
     type: Date,
-    required: true,
     default: () => new Date().setHours(0, 0, 0, 0),
   },
 
   // Work mode ON
   workModeOnTime: {
     type: Date,
-    required: true,
   },
   workModeOnCoordinates: {
     latitude: { type: Number, required: false },
@@ -80,18 +71,6 @@ const attendanceSchema = new mongoose.Schema({
   // Status - Fixed enum
   status: {
     type: String,
-    enum: [
-      "Active",
-      "AwaitingApproval",
-      "Approved", 
-      "Rejected",
-      "Present",
-      "Half Day",
-      "Leave",
-      "Absent",
-      "Late Arrival",
-      "Early Leave"
-    ],
     default: "Active",
   },
 
