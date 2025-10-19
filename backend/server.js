@@ -1,10 +1,9 @@
-require("dotenv").config({ path: __dirname + "/.env" });
-const express = require("express");
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
-const connectDB = require("./config/db");
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const connectDB = require('./config/db'); 
 const jobApplicationRoutes = require("./routes/ClientRoutes/JobApplicationRoute");
-const salesEmployeeTaskRoutes = require("./routes/SalesEmployeeRoutes/tasks");
 
 // Imported All Routes
 const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
@@ -12,6 +11,8 @@ const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
 // CEO all routes
 const hrSectionRoutes = require("./routes/CeoRoutes/HrSection");
 const ceoTaskRoutes = require("./routes/CeoRoutes/TasksMeetingsSection");
+const CeoProfileSection= require("./routes/CeoRoutes/CeoProfileSection");
+const ceoMeetingRoutes= require("./routes/CeoRoutes/MeetingRoutes");
 
 // HR All Routes
 const hrOverviewRoutes = require("./routes/HrRoutes/HrOverviewSection");
@@ -23,10 +24,16 @@ const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
-const teamLeaderMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
+const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
+const hrProfileRoutes=require("./routes/HrRoutes/HrProfileSection")
+
 
 //TL All Routes
-const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
+const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
+const TLMeetingRoutes= require("./routes/TeamLeaderRoutes/MeetingRoutes")
+const TLProfileRoutes=require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection")
+const TLAttendanceRoutes=require("./routes/TeamLeaderRoutes/attendance")
+
 
 const app = express();
 connectDB();
@@ -43,15 +50,19 @@ app.use(cookieParser());
 
 app.use("/uploads", express.static("uploads"));
 
-//All Routes end-points
+// All Routes end-points
 app.use("/api/employee", allEmployeeAuthRoute);
 
 // CEO routes end-points
 app.use("/api/ceo/hr", hrSectionRoutes);
 app.use("/api/ceo/tasks-meetings", ceoTaskRoutes);
+app.use("/api/ceo/meetings", ceoMeetingRoutes);
+app.use("/api/ceo/profile", CeoProfileSection);
+
 
 // HR routes end-points
 app.use("/api/hr/overview", hrOverviewRoutes);
+app.use("/api/hr/profile", hrProfileRoutes);
 app.use("/api/hr/team-leaders", teamLeaderRoutes);
 app.use("/api/hr/accountants", accountantRoutes);
 app.use("/api/hr/telecaller", telecallerRoutes);
@@ -61,13 +72,16 @@ app.use("/api/hr/hiring", hiringRoutes);
 app.use("/api/client/job-applications", jobApplicationRoutes);
 app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
-app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
+app.use("/api/hr/meetings", MeetingRoutes);
 
-//TL routes end-points
+
+// TL routes end-points
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
+app.use("/api/tl/meetings", TLMeetingRoutes);
+app.use("/api/tl/profile", TLProfileRoutes);
+app.use("/api/tl/attendance", TLAttendanceRoutes);
 
-//Team leader
-app.use("/api/team-leader/meetings", teamLeaderMeetingRoutes);
+
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -92,10 +106,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(
-    `✅ Health check available at: http://localhost:${PORT}/api/health`
-  );
-  console.log(
-    `✅ CEO HR Dashboard available at: http://localhost:${PORT}/api/ceo/hr/dashboard`
-  );
 });

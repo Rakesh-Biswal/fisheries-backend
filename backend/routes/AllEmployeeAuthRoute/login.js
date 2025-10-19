@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const Ceo = require("../../models/CEO/CeoPi");
 const HrEmployee = require("../../models/HR/HrEmployee");
 const SalesEmployeeEmployee = require("../../models/SALESEMPLOYEE/SalesEmployeeEmployee");
+const TeamLeaderEmployee = require('../../models/TEAMLEADER/TeamLeaderEmployee'); // Updated import
 const router = express.Router();
 
 // Check if JWT secret is available
@@ -15,15 +16,15 @@ if (!process.env.JWT_SECRET) {
 
 console.log("🔑 JWT Secret loaded:", process.env.JWT_SECRET ? "Yes" : "No");
 
-// Employee sign-in with email and password (for website - CEO, HR)
-router.post("/signin", async (req, res) => {
+// Employee sign-in with email and password
+router.post('/signin', async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: "Please provide email and password",
+        error: "Please provide email and password"
       });
     }
 
@@ -36,7 +37,7 @@ router.post("/signin", async (req, res) => {
       if (!isPasswordValid) {
         return res.status(401).json({
           success: false,
-          error: "Invalid credentials",
+          error: "Invalid credentials"
         });
       }
 
@@ -65,9 +66,9 @@ router.post("/signin", async (req, res) => {
           id: user._id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: user.role
         },
-        redirectTo: "/dashboard/ceo/overview",
+        redirectTo: "/dashboard/ceo/overview"
       });
     }
 
@@ -80,7 +81,7 @@ router.post("/signin", async (req, res) => {
       if (!isPasswordValid) {
         return res.status(401).json({
           success: false,
-          error: "Invalid credentials",
+          error: "Invalid credentials"
         });
       }
 
@@ -88,7 +89,7 @@ router.post("/signin", async (req, res) => {
       if (user.status !== "active") {
         return res.status(401).json({
           success: false,
-          error: "Your account is deactivated. Please contact administrator.",
+          error: "Your account is deactivated. Please contact administrator."
         });
       }
 
@@ -118,22 +119,77 @@ router.post("/signin", async (req, res) => {
           name: user.name,
           email: user.companyEmail,
           role: user.role,
-          photo: user.photo,
+          photo: user.photo // Include photo for HR
         },
-        redirectTo: "/dashboard/hr/overview",
+        redirectTo: "/dashboard/hr/overview" // Redirect to HR dashboard
+      });
+    }
+
+    // Check if it's a Team Leader (using TeamLeaderEmployee model)
+    user = await TeamLeaderEmployee.findOne({ companyEmail: email });
+
+    if (user) {
+      // Verify Team Leader password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          error: "Invalid credentials"
+        });
+      }
+
+      // Check if Team Leader is active
+      if (user.status !== "active") {
+        return res.status(401).json({
+          success: false,
+          error: "Your account is deactivated. Please contact administrator."
+        });
+      }
+
+      const token = jwt.sign(
+        {
+          id: user._id,
+          email: user.companyEmail,
+          role: "teamleader", // Set role as teamleader
+          name: user.name,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      res.cookie("EmployeeToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production" ? true : false,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return res.json({
+        success: true,
+        message: "Team Leader sign in successful",
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.companyEmail,
+          role: "teamleader",
+          photo: user.photo, // Include photo for Team Leader
+          empCode: user.empCode // Include employee code
+        },
+        redirectTo: "/dashboard/teamleader" // Redirect to Team Leader dashboard
       });
     }
 
     // If no user found
     return res.status(401).json({
       success: false,
-      error: "No employee found with this email",
+      error: "No employee found with this email"
     });
+
   } catch (error) {
     console.error("Sign-in error:", error);
     res.status(500).json({
       success: false,
-      error: "Internal server error",
+      error: "Internal server error"
     });
   }
 });

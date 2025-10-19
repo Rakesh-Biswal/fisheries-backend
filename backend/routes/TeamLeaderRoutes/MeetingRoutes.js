@@ -1,290 +1,255 @@
-const express = require("express");
-const Meeting = require("../../models/TEAMLEADER/Meeting");
-const TeamLeaderEmployee = require("../../models/TEAMLEADER/TeamLeaderEmployee");
-const SalesEmployee = require("../../models/SALESEMPLOYEE/SalesEmployeeEmployee");
-const ProjectManager = require("../../models/PROJECTMANAGER/ProjectManagerEmployee");
-const { authenticateToken } = require("../../middleware/authMiddleware");
-
+const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
+const Meeting = require('../../models/Meetings/Meeting');
+const TLAuth = require('./TeamLeaderAuthMiddlewear');
 
-/**
- * ========================
- * GET /api/team-leader/meetings
- * Fetch all meetings for logged-in team leader
- * ========================
- */
-router.get("/", authenticateToken, async (req, res) => {
+// Get all meetings organized by Team Leader
+router.get('/', TLAuth, async (req, res) => {
   try {
-    const teamLeaderId = req.user.id;
+    const { date } = req.query;
+    
+    let query = { 
+      organizer: req.tl.id,
+      organizerModel: 'TeamLeaderEmployee'
+    };
+    
+    // Filter by date if provided
+    if (date) {
+      const selectedDate = new Date(date);
+      selectedDate.setHours(0, 0, 0, 0);
+      const nextDate = new Date(selectedDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      
+      query.meetingDate = {
+        $gte: selectedDate,
+        $lt: nextDate
+      };
+    }
 
-    const meetings = await Meeting.find({ organizer: teamLeaderId })
-      .sort({ createdAt: -1 });
-
-    console.log("📅 Fetched meetings:", meetings.length);
+    const meetings = await Meeting.find(query)
+      .sort({ meetingDate: -1, startTime: -1 });
 
     res.json({
       success: true,
-      data: meetings,
-      count: meetings.length,
+      data: meetings
     });
   } catch (error) {
-    console.error("❌ Error fetching meetings:", error);
+    console.error('Error fetching meetings:', error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch meetings",
-      error: error.message,
+      message: 'Failed to fetch meetings'
     });
   }
 });
 
-/**
- * ========================
- * POST /api/team-leader/meetings
- * Create new meeting
- * ========================
- */
-router.post("/", authenticateToken, async (req, res) => {
+// Create new meeting
+router.post('/', TLAuth, async (req, res) => {
   try {
-    const teamLeaderId = req.user.id;
     const {
       title,
       description,
-      googleMeetLink,
-      participants = [],
-      timeSlots,
-      agenda,
-      meetingType,
-      priority
+      meetingDate,
+      startTime,
+      endTime,
+      participants,
+      platform,
+      meetingLink
     } = req.body;
 
-    console.log("🔍 Received meeting data:", {
+    // Validate required fields
+    if (!title || !description || !meetingDate || !startTime || !endTime || !participants) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided'
+      });
+    }
+
+    // Validate participants array
+    if (!Array.isArray(participants) || participants.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one participant department is required'
+      });
+    }
+
+    const meeting = new Meeting({
       title,
-      googleMeetLink,
-      participantsCount: participants.length,
-      timeSlotsCount: timeSlots?.length,
-      teamLeaderId
+      description,
+      meetingDate,
+      startTime,
+      endTime,
+      participants,
+      platform: platform || 'Google Meet',
+      meetingLink: meetingLink || '',
+      organizer: req.tl.id,
+      organizerModel: 'TeamLeaderEmployee',
+      organizerRole: 'team-leader'
     });
 
-    // === Enhanced Validation ===
-    if (!title || !title.trim()) {
-      return res.status(400).json({ success: false, message: "Meeting title is required" });
-    }
-
-    if (!googleMeetLink || !googleMeetLink.trim()) {
-      return res.status(400).json({ success: false, message: "Google Meet link is required" });
-    }
-
-    if (!timeSlots || !Array.isArray(timeSlots) || timeSlots.length === 0) {
-      return res.status(400).json({ success: false, message: "At least one time slot is required" });
-    }
-
-    for (let i = 0; i < timeSlots.length; i++) {
-      const slot = timeSlots[i];
-      if (!slot.date || !slot.startTime) {
-        return res.status(400).json({
-          success: false,
-          message: `Time slot ${i + 1} is missing date or start time`,
-        });
-      }
-    }
-
-    // === Verify Team Leader Exists (Optional) ===
-    try {
-      const teamLeader = await TeamLeaderEmployee.findById(teamLeaderId);
-      if (!teamLeader) {
-        console.warn("⚠️ Team leader not found, but continuing:", teamLeaderId);
-      }
-    } catch (dbError) {
-      console.warn("⚠️ Team leader verification skipped:", dbError.message);
-    }
-
-    // === Build Meeting Data ===
-    const meetingData = {
-      title: title.trim(),
-      description: (description || agenda || '').trim(),
-      googleMeetLink: googleMeetLink.trim(),
-      organizer: teamLeaderId,
-      participants: participants.map(p => ({
-        employeeId: p.employeeId,
-        name: p.name || 'Unknown',
-        email: p.email || '',
-        employeeType: p.employeeType || 'sales',
-        status: 'pending'
-      })),
-      timeSlots: timeSlots.map(slot => ({
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime || calculateEndTime(slot.startTime),
-        status: 'scheduled'
-      })),
-      agenda: (agenda || description || '').trim(),
-      meetingType: meetingType || 'team',
-      priority: priority || 'medium',
-      status: 'scheduled'
-    };
-
-    console.log("💾 Saving meeting data:", meetingData);
-
-    // === Save Meeting ===
-    const meeting = new Meeting(meetingData);
-    const savedMeeting = await meeting.save();
-    console.log("✅ Meeting saved successfully:", savedMeeting._id);
-
-    // Populate before returning
-    const populatedMeeting = await Meeting.findById(savedMeeting._id);
+    await meeting.save();
 
     res.status(201).json({
       success: true,
-      message: "Meeting created successfully",
-      data: populatedMeeting,
+      message: 'Meeting created successfully',
+      data: meeting
     });
-
   } catch (error) {
-    console.error("❌ Error creating meeting:", error);
-
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: errors
-      });
-    }
-
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: "Meeting with similar details already exists",
-      });
-    }
-
+    console.error('Error creating meeting:', error);
     res.status(500).json({
       success: false,
-      message: "Failed to create meeting",
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: 'Failed to create meeting'
     });
   }
 });
 
-/**
- * ========================
- * GET /api/team-leader/meetings/employees/available
- * Fetch available employees (Sales + PMs)
- * ========================
- */
-router.get("/employees/available", authenticateToken, async (req, res) => {
+// Update meeting
+router.put('/:id', TLAuth, async (req, res) => {
   try {
-    const salesEmployees = await SalesEmployee.find({ status: "active" })
-      .select("name email phone designation")
-      .lean();
+    const {
+      title,
+      description,
+      meetingDate,
+      startTime,
+      endTime,
+      participants,
+      platform,
+      meetingLink,
+      status
+    } = req.body;
 
-    const projectManagers = await ProjectManager.find({ status: "active" })
-      .select("name email phone designation")
-      .lean();
-
-    const allEmployees = [
-      ...salesEmployees.map(emp => ({
-        _id: emp._id,
-        name: emp.name,
-        email: emp.email,
-        phone: emp.phone,
-        designation: emp.designation,
-        employeeType: "sales"
-      })),
-      ...projectManagers.map(emp => ({
-        _id: emp._id,
-        name: emp.name,
-        email: emp.email,
-        phone: emp.phone,
-        designation: emp.designation,
-        employeeType: "project_manager"
-      }))
-    ];
-
-    console.log("👥 Available employees:", allEmployees.length);
-
-    res.json({
-      success: true,
-      data: allEmployees,
-      count: allEmployees.length,
-    });
-  } catch (error) {
-    console.error("❌ Error fetching available employees:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch employees",
-      error: error.message,
-    });
-  }
-});
-
-/**
- * ========================
- * GET /api/team-leader/meetings/calendar/events
- * Fetch calendar events
- * ========================
- */
-router.get("/calendar/events", authenticateToken, async (req, res) => {
-  try {
-    const teamLeaderId = req.user.id;
-    const { startDate, endDate } = req.query;
-
-    if (!startDate || !endDate) {
-      return res.status(400).json({
-        success: false,
-        message: "Start date and end date are required"
-      });
-    }
-
-    const meetings = await Meeting.find({
-      organizer: teamLeaderId,
-      "timeSlots.date": { $gte: startDate, $lte: endDate }
-    }).select("title timeSlots participants meetingType status googleMeetLink");
-
-    const calendarEvents = meetings.flatMap(meeting =>
-      meeting.timeSlots.map(slot => ({
-        id: `${meeting._id}-${slot._id}`,
-        title: meeting.title,
-        start: new Date(`${slot.date}T${slot.startTime}`),
-        end: new Date(`${slot.date}T${slot.endTime}`),
-        type: meeting.meetingType,
-        status: meeting.status,
-        participants: meeting.participants.length,
-        meetingLink: meeting.googleMeetLink,
-        extendedProps: {
-          meetingId: meeting._id,
-          slotId: slot._id
-        }
-      }))
+    const meeting = await Meeting.findOneAndUpdate(
+      { 
+        _id: req.params.id, 
+        organizer: req.tl.id,
+        organizerModel: 'TeamLeaderEmployee'
+      },
+      {
+        title,
+        description,
+        meetingDate,
+        startTime,
+        endTime,
+        participants,
+        platform,
+        meetingLink,
+        status,
+        updatedAt: new Date()
+      },
+      { new: true }
     );
 
-    console.log("📆 Calendar events:", calendarEvents.length);
+    if (!meeting) {
+      return res.status(404).json({
+        success: false,
+        message: 'Meeting not found'
+      });
+    }
 
     res.json({
       success: true,
-      data: calendarEvents,
-      count: calendarEvents.length,
+      message: 'Meeting updated successfully',
+      data: meeting
     });
   } catch (error) {
-    console.error("❌ Error fetching calendar events:", error);
+    console.error('Error updating meeting:', error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch calendar events",
-      error: error.message,
+      message: 'Failed to update meeting'
     });
   }
 });
 
-/**
- * Helper: Auto calculate end time (default 60 min)
- */
-function calculateEndTime(startTime, duration = 60) {
-  const [hours, minutes] = startTime.split(":").map(Number);
-  const startDate = new Date();
-  startDate.setHours(hours, minutes, 0, 0);
+// Delete meeting
+router.delete('/:id', TLAuth, async (req, res) => {
+  try {
+    const meeting = await Meeting.findOneAndDelete({
+      _id: req.params.id,
+      organizer: req.tl.id,
+      organizerModel: 'TeamLeaderEmployee'
+    });
 
-  const endDate = new Date(startDate.getTime() + duration * 60000);
-  return `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`;
-}
+    if (!meeting) {
+      return res.status(404).json({
+        success: false,
+        message: 'Meeting not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Meeting deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting meeting:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete meeting'
+    });
+  }
+});
+
+// Get meeting statistics
+router.get('/stats', TLAuth, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const stats = await Meeting.aggregate([
+      { 
+        $match: { 
+          organizer: new mongoose.Types.ObjectId(req.tl.id),
+          organizerModel: 'TeamLeaderEmployee'
+        } 
+      },
+      {
+        $group: {
+          _id: null,
+          totalMeetings: { $sum: 1 },
+          todayMeetings: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ['$meetingDate', today] },
+                    { $lt: ['$meetingDate', tomorrow] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
+          scheduled: {
+            $sum: { $cond: [{ $eq: ['$status', 'scheduled'] }, 1, 0] }
+          },
+          completed: {
+            $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    const result = stats[0] || {
+      totalMeetings: 0,
+      todayMeetings: 0,
+      scheduled: 0,
+      completed: 0
+    };
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error fetching meeting stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch meeting statistics'
+    });
+  }
+});
 
 module.exports = router;

@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs")
 const SalesEmployeeEmployee = require("../../models/SALESEMPLOYEE/SalesEmployeeEmployee")
 const SalesEmployeeBusinessData = require("../../models/SALESEMPLOYEE/SalesEmployeeBusinessData")
 const HrEmployee = require("../../models/HR/HrEmployee")
-const { authenticateToken } = require("./HrAuthMiddlewear");
+const authenticateToken  = require("./HrAuthMiddlewear");
 
 const router = express.Router()
 
