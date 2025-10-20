@@ -17,19 +17,19 @@ const attendanceSchema = new mongoose.Schema(
         "HrEmployee",
         "AccountantEmployee",
         "TeleCallerEmployee",
-        "SalesEmployeeEmployee",
+        "SalesEmployeeEmployee", // ADD THIS LINE
       ],
     },
 
-    // Personal info fields
+    // Personal info fields that might be required
     name: {
       type: String,
-      required: false,
+      required: false, // Make optional since we have employee reference
     },
 
     department: {
       type: String,
-      required: false,
+      required: false, // Make optional
       enum: [
         "Team Leader",
         "HR",
@@ -37,7 +37,7 @@ const attendanceSchema = new mongoose.Schema(
         "Tele Caller",
         "Field Executive",
       ],
-      default: "Field Executive", // Changed default for sales employees
+      default: "Team Leader",
     },
 
     // Date and time
@@ -76,7 +76,6 @@ const attendanceSchema = new mongoose.Schema(
             latitude: { type: Number },
             longitude: { type: Number },
           },
-          distanceFromStart: { type: Number, default: 0 }, // Distance from starting point
         },
       ],
       default: [],
@@ -92,7 +91,7 @@ const attendanceSchema = new mongoose.Schema(
       default: null,
     },
 
-    // Status
+    // Status - Fixed enum
     status: {
       type: String,
       enum: [
@@ -129,17 +128,16 @@ const attendanceSchema = new mongoose.Schema(
     updatedAt: { type: Date, default: Date.now },
   },
   {
+    // Disable strict mode to allow any fields during development
     strict: false,
   }
 );
-
-// Index for faster queries
-attendanceSchema.index({ employeeId: 1, date: 1 });
-attendanceSchema.index({ employeeId: 1, workModeOnTime: -1 });
 
 attendanceSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
+// Remove any existing model and recompile
+delete mongoose.connection.models["Attendance"];
 module.exports = mongoose.model("Attendance", attendanceSchema);
