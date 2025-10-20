@@ -19,21 +19,27 @@ const hrOverviewRoutes = require("./routes/HrRoutes/HrOverviewSection");
 const teamLeaderRoutes = require("./routes/HrRoutes/TeamLeaderSection");
 const accountantRoutes = require("./routes/HrRoutes/AccountantSection");
 const telecallerRoutes = require("./routes/HrRoutes/TeleCallerSection");
-const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
 const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
 const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
 const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
 const hrProfileRoutes=require("./routes/HrRoutes/HrProfileSection")
-const AttendanceManagementRoutes=require("./routes/HrRoutes/AttendanceManagementSection")
 
 
 //TL All Routes
 const TLTaskRoutes= require("./routes/TeamLeaderRoutes/TasksMeetingsSection")
 const TLMeetingRoutes= require("./routes/TeamLeaderRoutes/MeetingRoutes")
 const TLProfileRoutes=require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection")
-const TLAttendanceRoutes=require("./routes/TeamLeaderRoutes/AttendanceSection")
+const TLAttendanceRoutes=require("./routes/TeamLeaderRoutes/attendance")
+
+
+// Sales Employee All Routes
+const salesEmployeeMeetingRoutes = require("./routes/SalesEmployeeRoutes/S_meetings");
+const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
+const salesEmployeeTaskRoutes = require("./routes/SalesEmployeeRoutes/tasks");
+const salesEmployeeAttendanceRoutes = require("./routes/SalesEmployeeRoutes/S_attendance");
+
 
 
 const app = express();
@@ -74,7 +80,6 @@ app.use("/api/client/job-applications", jobApplicationRoutes);
 app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
 app.use("/api/hr/meetings", MeetingRoutes);
-app.use("/api/hr/attendance-management", AttendanceManagementRoutes);
 
 
 // TL routes end-points
@@ -83,6 +88,11 @@ app.use("/api/tl/meetings", TLMeetingRoutes);
 app.use("/api/tl/profile", TLProfileRoutes);
 app.use("/api/tl/attendance", TLAttendanceRoutes);
 
+
+// Employee routes end-points
+app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
+app.use("/api/sales-employee/attendance", salesEmployeeAttendanceRoutes);
+app.use("/api/sales-employee/meetings", salesEmployeeMeetingRoutes);
 
 
 app.get("/api/health", (req, res) => {
