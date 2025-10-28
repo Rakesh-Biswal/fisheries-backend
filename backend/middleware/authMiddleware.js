@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
+// middleware/authMiddleware.js - FIXED VERSION
+const jwt = require("jsonwebtoken");
 const SalesEmployeeEmployee = require("../models/SALESEMPLOYEE/SalesEmployeeEmployee");
-
 
 const SalesEmployeeAuth = async (req, res, next) => {
   try {
@@ -13,7 +13,9 @@ const SalesEmployeeAuth = async (req, res, next) => {
       });
     }
 
+    // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("🔐 Decoded token:", decoded);
 
     // Check if it's a sales employee
     if (decoded.role !== "sales-employee") {
@@ -23,63 +25,80 @@ const SalesEmployeeAuth = async (req, res, next) => {
       });
     }
 
+    // Find sales employee in database
     const salesEmployee = await SalesEmployeeEmployee.findById(
       decoded.id
     ).select("-password");
 
-    if (!salesEmployee || salesEmployee.status !== "active") {
+    if (!salesEmployee) {
       return res.status(401).json({
         success: false,
-        message: "Sales employee not found or inactive",
+        message: "Sales employee not found",
       });
     }
 
+    if (salesEmployee.status !== "active") {
+      return res.status(401).json({
+        success: false,
+        message: "Sales employee account is inactive",
+      });
+    }
+
+    // Attach sales employee info to request
     req.salesEmployee = {
-      id: salesEmployee._id,
+      id: salesEmployee._id.toString(),
       name: salesEmployee.name,
       email: salesEmployee.companyEmail,
       role: salesEmployee.role,
     };
 
+    console.log("✅ Sales employee authenticated:", req.salesEmployee);
     next();
   } catch (error) {
-    console.error("Sales employee auth error:", error);
-    res.status(401).json({
+    console.error("❌ Sales employee auth error:", error);
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+      });
+    }
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired",
+      });
+    }
+
+    res.status(500).json({
       success: false,
-      message: "Invalid token",
+      message: "Authentication error",
     });
   }
 };
 
-
-// Simple authentication middleware for testing
+// Simple authentication middleware for testing (if needed)
 const authenticateToken = async (req, res, next) => {
   try {
-    // For testing, you can temporarily bypass auth
-    // Remove this in production
-    req.user = { id: '65d8f5a8e4b1c2d3e4f5a6b7' }; // Mock user ID for testing
-    return next();
-
-    /* Uncomment for real authentication
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'Access token required'
+        message: "Access token required",
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
-    */
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error("Authentication error:", error);
     return res.status(403).json({
       success: false,
-      message: 'Invalid or expired token'
+      message: "Invalid or expired token",
     });
   }
 };

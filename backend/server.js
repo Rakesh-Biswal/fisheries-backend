@@ -26,9 +26,8 @@ const hiringRoutes = require("./routes/HrRoutes/HiringSection");
 const taskMeetingsRoutes = require("./routes/HrRoutes/TasksMeetingsSection");
 const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
 const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
-const hrProfileRoutes=require("./routes/HrRoutes/HrProfileSection")
-const AttendanceManagementRoutes=require("./routes/HrRoutes/AttendanceManagementSection")
-
+const hrProfileRoutes = require("./routes/HrRoutes/HrProfileSection");
+const AttendanceManagementRoutes = require("./routes/HrRoutes/AttendanceManagementSection");
 
 //TL All Routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
@@ -41,6 +40,7 @@ const salesEmployeeMeetingRoutes = require("./routes/SalesEmployeeRoutes/S_meeti
 const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
 const salesEmployeeTaskRoutes = require("./routes/SalesEmployeeRoutes/tasks");
 const salesEmployeeAttendanceRoutes = require("./routes/SalesEmployeeRoutes/S_attendance");
+const farmerLeadRoutes = require("./routes/SalesEmployeeRoutes/farmerLeads");
 
 const app = express();
 connectDB();
@@ -130,6 +130,7 @@ app.use("/api/tl/attendance", TLAttendanceRoutes);
 app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
 app.use("/api/sales-employee/attendance", salesEmployeeAttendanceRoutes);
 app.use("/api/sales-employee/meetings", salesEmployeeMeetingRoutes);
+app.use("/api/sales-employee", farmerLeadRoutes);
 
 app.get("/api/health", (req, res) => {
   const dbStatus =

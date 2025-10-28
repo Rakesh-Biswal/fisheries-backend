@@ -93,12 +93,21 @@ router.get("/active-session", SalesEmployeeAuth, async (req, res) => {
 // Start work mode with improved error handling
 router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
   try {
-    const { coordinates, workType = "Field Work" } = req.body;
+    const {
+      coordinates,
+      workType = "Field Work",
+      imageURL,
+      existingDistance = 0,
+      isResuming = false,
+    } = req.body;
 
     console.log("Sales Employee Work mode on request:", {
       employee: req.employee.id,
       coordinates,
       workType,
+      hasImage: !!imageURL,
+      existingDistance,
+      isResuming,
     });
 
     if (!coordinates || !coordinates.latitude || !coordinates.longitude) {
@@ -112,26 +121,126 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Check for existing active session with timeout
-    const existingAttendance = await Attendance.findOne({
+    // FIRST: Check for existing ACTIVE session
+    const existingActiveAttendance = await Attendance.findOne({
       employeeId: req.employee.id,
       employeeModel: "SalesEmployeeEmployee",
       date: today,
-      workModeOffTime: null,
+      workModeOffTime: null, // Only check active sessions
     });
 
-    if (existingAttendance) {
-      return res.status(400).json({
-        success: false,
-        message: "Work mode already active for today",
-        data: {
-          isActive: true,
-          workModeOnTime: existingAttendance.workModeOnTime,
+    if (existingActiveAttendance) {
+      console.log("🔄 Active session found, updating existing record");
+
+      // Update the existing active attendance
+      existingActiveAttendance.workModeOnCoordinates = {
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      };
+
+      // Save image URL if provided
+      if (imageURL) {
+        existingActiveAttendance.ImageURL = imageURL;
+        console.log("📸 Image URL saved to active session:", imageURL);
+      }
+
+      // Add resume log
+      existingActiveAttendance.travelLogs.push({
+        timestamp: new Date(),
+        coordinates: {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
         },
+        distanceFromStart: existingDistance,
+        type: "resume_active",
+      });
+
+      await existingActiveAttendance.save();
+
+      const responseData = {
+        isActive: true,
+        workModeOnTime: existingActiveAttendance.workModeOnTime,
+        totalWorkDuration: null,
+        totalDistanceTravelled:
+          existingActiveAttendance.totalDistanceTravelled + existingDistance,
+        status: existingActiveAttendance.status,
+        workType: existingActiveAttendance.workType,
+        startingLocation: existingActiveAttendance.workModeOnCoordinates,
+        imageURL: existingActiveAttendance.ImageURL,
+      };
+
+      return res.json({
+        success: true,
+        message: "Active work session resumed successfully",
+        data: responseData,
       });
     }
 
-    // Create new attendance
+    // SECOND: Check for COMPLETED session today that we can EXTEND
+    const todaysCompletedSession = await Attendance.findOne({
+      employeeId: req.employee.id,
+      employeeModel: "SalesEmployeeEmployee",
+      date: today,
+      workModeOffTime: { $ne: null }, // Completed sessions
+    }).sort({ workModeOnTime: -1 }); // Get the latest one
+
+    if (todaysCompletedSession) {
+      console.log("📅 Found completed session for today, extending it");
+
+      // Re-open the completed session
+      todaysCompletedSession.workModeOffTime = null;
+      todaysCompletedSession.status = "Active";
+
+      // Update coordinates
+      todaysCompletedSession.workModeOnCoordinates = {
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      };
+
+      // Save image URL if provided
+      if (imageURL) {
+        todaysCompletedSession.ImageURL = imageURL;
+        console.log("📸 Image URL saved to extended session:", imageURL);
+      }
+
+      // Add extend entry to travel logs
+      todaysCompletedSession.travelLogs.push({
+        timestamp: new Date(),
+        coordinates: {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+        },
+        distanceFromStart:
+          todaysCompletedSession.totalDistanceTravelled + existingDistance,
+        type: "extend",
+      });
+
+      // Update total distance
+      todaysCompletedSession.totalDistanceTravelled += existingDistance;
+
+      await todaysCompletedSession.save();
+
+      const responseData = {
+        isActive: true,
+        workModeOnTime: todaysCompletedSession.workModeOnTime,
+        totalWorkDuration: null, // Will be recalculated when ended
+        totalDistanceTravelled: todaysCompletedSession.totalDistanceTravelled,
+        status: todaysCompletedSession.status,
+        workType: todaysCompletedSession.workType,
+        startingLocation: todaysCompletedSession.workModeOnCoordinates,
+        imageURL: todaysCompletedSession.ImageURL,
+      };
+
+      return res.json({
+        success: true,
+        message: "Work session extended successfully",
+        data: responseData,
+      });
+    }
+
+    // THIRD: Create brand new attendance (no existing session found)
+    console.log("🆕 Creating brand new attendance record");
+
     const attendanceData = {
       employeeId: req.employee.id,
       employeeModel: "SalesEmployeeEmployee",
@@ -145,7 +254,8 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
       workType,
       status: "Active",
       name: req.employee.name,
-      totalDistanceTravelled: 0,
+      totalDistanceTravelled: existingDistance,
+      ImageURL: imageURL || null,
       travelLogs: [
         {
           timestamp: new Date(),
@@ -153,7 +263,8 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
             latitude: coordinates.latitude,
             longitude: coordinates.longitude,
           },
-          distanceFromStart: 0,
+          distanceFromStart: existingDistance,
+          type: "start",
         },
       ],
     };
@@ -161,7 +272,7 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
     const attendance = new Attendance(attendanceData);
     await attendance.save();
 
-    console.log("Sales Employee Attendance saved successfully");
+    console.log("✅ New attendance record created successfully");
 
     const responseData = {
       isActive: true,
@@ -171,6 +282,7 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
       status: attendance.status,
       workType: attendance.workType,
       startingLocation: attendance.workModeOnCoordinates,
+      imageURL: attendance.ImageURL,
     };
 
     res.status(201).json({
