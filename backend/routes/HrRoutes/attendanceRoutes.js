@@ -1,7 +1,7 @@
 // backend/routes/HR/attendanceRoutes.js
 const express = require("express");
 const router = express.Router();
-const Attendance = require("../../models/HR/Attendance");
+const Attendance = require("../../models/HR/HolidayAttendance");
 const Holiday = require("../../models/HR/Holiday");
 
 // ✅ Mark attendance
