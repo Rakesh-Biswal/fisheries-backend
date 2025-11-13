@@ -123,6 +123,9 @@ const attendanceSchema = new mongoose.Schema(
       default: null,
     },
 
+    //workers can upload their image as proof for attendance
+    ImageURL: { type: String, default: null },
+
     // Timestamps
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
