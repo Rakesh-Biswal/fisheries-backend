@@ -5,7 +5,8 @@ const jwt = require("jsonwebtoken");
 const Ceo = require("../../models/CEO/CeoPi");
 const HrEmployee = require("../../models/HR/HrEmployee");
 const SalesEmployeeEmployee = require("../../models/SALESEMPLOYEE/SalesEmployeeEmployee");
-const TeamLeaderEmployee = require('../../models/TEAMLEADER/TeamLeaderEmployee'); // Updated import
+const TeamLeaderEmployee = require('../../models/TEAMLEADER/TeamLeaderEmployee');
+const ProjectManagerEmployee = require('../../models/PROJECTMANAGER/ProjectManagerEmployee'); // Added import
 const router = express.Router();
 
 // Check if JWT secret is available
@@ -176,6 +177,60 @@ router.post('/signin', async (req, res) => {
           empCode: user.empCode // Include employee code
         },
         redirectTo: "/dashboard/teamleader" // Redirect to Team Leader dashboard
+      });
+    }
+
+    // Check if it's a Project Manager (using ProjectManagerEmployee model)
+    user = await ProjectManagerEmployee.findOne({ companyEmail: email });
+
+    if (user) {
+      // Verify Project Manager password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          error: "Invalid credentials"
+        });
+      }
+
+      // Check if Project Manager is active
+      if (user.status !== "active") {
+        return res.status(401).json({
+          success: false,
+          error: "Your account is deactivated. Please contact administrator."
+        });
+      }
+
+      const token = jwt.sign(
+        {
+          id: user._id,
+          email: user.companyEmail,
+          role: "project-manager", // Set role as project-manager
+          name: user.name,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      res.cookie("EmployeeToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production" ? true : false,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return res.json({
+        success: true,
+        message: "Project Manager sign in successful",
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.companyEmail,
+          role: "project-manager",
+          photo: user.photo, // Include photo for Project Manager
+          empCode: user.empCode // Include employee code
+        },
+        redirectTo: "/dashboard/project-manager" // Redirect to Project Manager dashboard
       });
     }
 
@@ -359,7 +414,7 @@ router.get("/sales-profile", async (req, res) => {
   }
 });
 
-// Change password endpoint
+// Change password endpoint (Updated to include Project Manager)
 router.post("/change-password", async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -404,6 +459,10 @@ router.post("/change-password", async (req, res) => {
       user = await HrEmployee.findById(decoded.id);
     } else if (decoded.role === "ceo") {
       user = await Ceo.findById(decoded.id);
+    } else if (decoded.role === "teamleader") {
+      user = await TeamLeaderEmployee.findById(decoded.id);
+    } else if (decoded.role === "project-manager") {
+      user = await ProjectManagerEmployee.findById(decoded.id);
     }
 
     if (!user) {
@@ -458,8 +517,20 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    // Find user by phone number
-    const user = await SalesEmployeeEmployee.findOne({ phone });
+    // Find user by phone number (check all employee types)
+    let user = await SalesEmployeeEmployee.findOne({ phone });
+
+    if (!user) {
+      user = await TeamLeaderEmployee.findOne({ phone });
+    }
+
+    if (!user) {
+      user = await ProjectManagerEmployee.findOne({ phone });
+    }
+
+    if (!user) {
+      user = await HrEmployee.findOne({ phone });
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -484,10 +555,10 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
-// Reset password by HR (admin function)
+// Reset password by HR (admin function) - Updated to include Project Manager
 router.post("/reset-password", async (req, res) => {
   try {
-    const { employeeId, newPassword } = req.body;
+    const { employeeId, newPassword, role } = req.body;
 
     if (!employeeId || !newPassword) {
       return res.status(400).json({
@@ -503,8 +574,23 @@ router.post("/reset-password", async (req, res) => {
       });
     }
 
-    // Find user by ID
-    const user = await SalesEmployeeEmployee.findById(employeeId);
+    // Find user by ID and role
+    let user;
+    if (role === "sales-employee") {
+      user = await SalesEmployeeEmployee.findById(employeeId);
+    } else if (role === "teamleader") {
+      user = await TeamLeaderEmployee.findById(employeeId);
+    } else if (role === "project-manager") {
+      user = await ProjectManagerEmployee.findById(employeeId);
+    } else if (role === "hr") {
+      user = await HrEmployee.findById(employeeId);
+    } else {
+      // If no role specified, try all employee types
+      user = await SalesEmployeeEmployee.findById(employeeId) ||
+        await TeamLeaderEmployee.findById(employeeId) ||
+        await ProjectManagerEmployee.findById(employeeId) ||
+        await HrEmployee.findById(employeeId);
+    }
 
     if (!user) {
       return res.status(404).json({
