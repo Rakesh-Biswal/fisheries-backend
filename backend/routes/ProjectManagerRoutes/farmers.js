@@ -117,4 +117,69 @@ router.get("/test/:id", async (req, res) => {
     }
 });
 
+// Update Step 2 document status
+router.patch("/:id/step2-status", async (req, res) => {
+    try {
+        const farmerId = req.params.id;
+        const { documentStatus, verificationNotes } = req.body;
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(farmerId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid farmer ID format"
+            });
+        }
+
+        if (!documentStatus) {
+            return res.status(400).json({
+                success: false,
+                message: "Document status is required"
+            });
+        }
+
+        // Validate document status
+        const validStatuses = ["Pending", "Under Review", "Approved", "Rejected", "Needs Correction"];
+        if (!validStatuses.includes(documentStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid document status"
+            });
+        }
+
+        console.log("Updating Step 2 status for farmer:", farmerId, "Status:", documentStatus);
+
+        // Find and update the Step 2 data
+        const step2Data = await FarmerLand_II.findOneAndUpdate(
+            { farmerLeadId: farmerId },
+            {
+                documentStatus,
+                ...(verificationNotes && { verificationNotes }),
+                updatedAt: new Date()
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!step2Data) {
+            return res.status(404).json({
+                success: false,
+                message: "Step 2 data not found for this farmer"
+            });
+        }
+
+        res.json({
+            success: true,
+            message: "Document status updated successfully",
+            data: step2Data
+        });
+    } catch (error) {
+        console.error("Error updating document status:", error);
+        res.status(500).json({
+            success: false,
+            message: "Error updating document status",
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
