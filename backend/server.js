@@ -34,6 +34,7 @@ const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
 const TLMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
 const TLProfileRoutes = require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection");
 const TLAttendanceRoutes = require("./routes/TeamLeaderRoutes/attendance");
+const TLTeamRoutes = require("./routes/TeamLeaderRoutes/teams");
 
 // Sales Employee routes
 const salesEmployeeMeetingRoutes = require("./routes/SalesEmployeeRoutes/S_meetings");
@@ -138,6 +139,7 @@ app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 app.use("/api/tl/meetings", TLMeetingRoutes);
 app.use("/api/tl/profile", TLProfileRoutes);
 app.use("/api/tl/attendance", TLAttendanceRoutes);
+app.use("/api/tl/teams", TLTeamRoutes);
 
 // Sales Employee routes
 app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
