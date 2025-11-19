@@ -88,7 +88,7 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
       previousCrops: previousCrops || [],
       preferredFishType: preferredFishType || undefined,
       notes: notes || undefined,
-      taskId: taskId || undefined,
+      taskId: taskId,
       submissionLocation,
       salesEmployeePhotos,
       salesEmployeeId: req.salesEmployee.id, // Use the authenticated sales employee ID

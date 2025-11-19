@@ -16,12 +16,13 @@ const FarmerLeadSchema = new mongoose.Schema(
     previousCrops: [{ type: String }], // array of previous crops/fishes grown
     preferredFishType: { type: String }, // e.g., Tilapia, Catla
     notes: { type: String }, // any additional info
+    role: { type: String, default: "farmer" },
 
     // ===== Task Tracking =====
     taskId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Task",
-      required: false, // Optional - if submitted from a specific task
+      ref: "TLTask",
+      required: true, // Optional - if submitted from a specific task
     },
 
     // ===== Sales Employee Tracking =====
@@ -45,8 +46,8 @@ const FarmerLeadSchema = new mongoose.Schema(
 
     // ===== Approval Status =====
     salesEmployeeApproved: { type: Boolean, default: null }, // true/false/null
-    teamLeaderApproved: { type: Boolean, default: null },
-    hrApproved: { type: Boolean, default: null },
+    teamLeaderApproved: { type: Boolean, default: true },
+    hrApproved: { type: Boolean, default: true },
 
     // ===== Internal Tracking =====
     createdAt: { type: Date, default: Date.now },

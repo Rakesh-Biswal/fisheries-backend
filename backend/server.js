@@ -7,6 +7,9 @@ const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const mongoose = require("mongoose");
 
+
+
+
 // Import Routes
 const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
 
@@ -18,7 +21,7 @@ const ceoMeetingRoutes = require("./routes/CeoRoutes/MeetingRoutes");
 
 // HR routes
 const hrOverviewRoutes = require("./routes/HrRoutes/HrOverviewSection");
-const teamLeaderRoutes = require("./routes/HrRoutes/TeamLeaderSection");
+const teamLeaderRoutes = require("./routes/HrRoutes/TeamLeaderSection"); // HR Team Leader routes
 const accountantRoutes = require("./routes/HrRoutes/AccountantSection");
 const telecallerRoutes = require("./routes/HrRoutes/TeleCallerSection");
 const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
@@ -34,6 +37,8 @@ const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
 const TLMeetingRoutes = require("./routes/TeamLeaderRoutes/MeetingRoutes");
 const TLProfileRoutes = require("./routes/TeamLeaderRoutes/TeamLeaderProfileSection");
 const TLAttendanceRoutes = require("./routes/TeamLeaderRoutes/attendance");
+const TLTeamRoutes = require("./routes/TeamLeaderRoutes/teams");
+
 
 // Sales Employee routes
 const salesEmployeeMeetingRoutes = require("./routes/SalesEmployeeRoutes/S_meetings");
@@ -98,6 +103,8 @@ app.use(cookieParser());
 // Static Files
 app.use("/uploads", express.static("uploads"));
 
+
+
 // Root Route
 app.get("/", (req, res) => {
   res.json({
@@ -122,7 +129,7 @@ app.use("/api/ceo/profile", CeoProfileSection);
 // HR routes
 app.use("/api/hr/overview", hrOverviewRoutes);
 app.use("/api/hr/profile", hrProfileRoutes);
-app.use("/api/hr/team-leaders", teamLeaderRoutes);
+app.use("/api/hr/team-leaders", teamLeaderRoutes); // HR Team Leader routes
 app.use("/api/hr/accountants", accountantRoutes);
 app.use("/api/hr/telecaller", telecallerRoutes);
 app.use("/api/hr/sales-employees", salesEmployeeRoutes);
@@ -138,6 +145,7 @@ app.use("/api/tl/tasks-meetings", TLTaskRoutes);
 app.use("/api/tl/meetings", TLMeetingRoutes);
 app.use("/api/tl/profile", TLProfileRoutes);
 app.use("/api/tl/attendance", TLAttendanceRoutes);
+app.use("/api/tl/teams", TLTeamRoutes);
 
 // Sales Employee routes
 app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
