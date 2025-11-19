@@ -39,7 +39,6 @@ const TLProfileRoutes = require("./routes/TeamLeaderRoutes/TeamLeaderProfileSect
 const TLAttendanceRoutes = require("./routes/TeamLeaderRoutes/attendance");
 const TLTeamRoutes = require("./routes/TeamLeaderRoutes/teams");
 
-
 // Sales Employee routes
 const salesEmployeeMeetingRoutes = require("./routes/SalesEmployeeRoutes/S_meetings");
 const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");

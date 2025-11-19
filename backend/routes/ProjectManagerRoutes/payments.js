@@ -2,31 +2,48 @@
 const express = require("express");
 const router = express.Router();
 const Payment = require("../../models/PAYMENTS/Payment");
+const jwt = require("jsonwebtoken");
 
-// Initialize Razorpay only if keys are available
-let razorpay;
-try {
-    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-        const Razorpay = require('razorpay');
-        razorpay = new Razorpay({
-            key_id: process.env.RAZORPAY_KEY_ID,
-            key_secret: process.env.RAZORPAY_KEY_SECRET
-        });
-        console.log("✅ Razorpay initialized successfully");
-    } else {
-        console.log("⚠️  Razorpay keys not found, running in development mode");
+// Helper function to extract user from token
+const getUserFromToken = (req) => {
+    try {
+        const token = req.cookies?.EmployeeToken || req.headers.authorization?.replace('Bearer ', '');
+        
+        if (!token) {
+            return null;
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return decoded;
+    } catch (error) {
+        console.error("Token verification error:", error);
+        return null;
     }
-} catch (error) {
-    console.log("⚠️  Razorpay not available, running in development mode:", error.message);
-}
+};
 
-// Create new payment
+// Create payment
 router.post("/create", async (req, res) => {
     try {
-        const { farmerLeadId, projectManagerId, paymentTitle, description, requirements, amount, reasonForPayment } = req.body;
+        const { 
+            farmerLeadId, 
+            paymentTitle, 
+            description, 
+            requirements, 
+            amount, 
+            reasonForPayment
+        } = req.body;
+
+        // Get user from token
+        const user = getUserFromToken(req);
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required"
+            });
+        }
 
         // Validate required fields
-        if (!farmerLeadId || !projectManagerId || !paymentTitle || !description || !amount || !reasonForPayment) {
+        if (!farmerLeadId || !paymentTitle || !description || !amount || !reasonForPayment) {
             return res.status(400).json({
                 success: false,
                 message: "Missing required fields"
@@ -35,7 +52,7 @@ router.post("/create", async (req, res) => {
 
         const payment = new Payment({
             farmerLeadId,
-            projectManagerId,
+            projectManagerId: user.id, // Use authenticated user's ID
             paymentTitle,
             description,
             requirements: requirements || [],
@@ -45,35 +62,10 @@ router.post("/create", async (req, res) => {
 
         await payment.save();
 
-        // Create Razorpay order if Razorpay is available
-        let razorpayOrder = null;
-        if (razorpay) {
-            try {
-                razorpayOrder = await razorpay.orders.create({
-                    amount: Math.round(amount * 100), // Convert to paise
-                    currency: "INR",
-                    receipt: `receipt_${payment._id}`,
-                    notes: {
-                        paymentId: payment._id.toString(),
-                        farmerLeadId: farmerLeadId.toString()
-                    }
-                });
-
-                payment.razorpayOrderId = razorpayOrder.id;
-                await payment.save();
-            } catch (razorpayError) {
-                console.error("Razorpay order creation failed:", razorpayError);
-                // Continue without Razorpay - payment can be marked for manual processing
-            }
-        }
-
         res.json({
             success: true,
             message: "Payment created successfully",
-            data: {
-                payment,
-                razorpayOrder
-            }
+            data: payment
         });
     } catch (error) {
         console.error("Error creating payment:", error);
@@ -85,19 +77,34 @@ router.post("/create", async (req, res) => {
     }
 });
 
-// Verify payment (webhook or callback)
-router.post("/verify", async (req, res) => {
+// Submit payment screenshot and details
+router.post("/:paymentId/submit-payment", async (req, res) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        const { 
+            screenshot,
+            paymentMethod,
+            transactionId,
+            additionalNotes
+        } = req.body;
 
-        if (!razorpay_order_id || !razorpay_payment_id) {
-            return res.status(400).json({
+        // Get user from token
+        const user = getUserFromToken(req);
+        if (!user) {
+            return res.status(401).json({
                 success: false,
-                message: "Missing payment verification data"
+                message: "Authentication required"
             });
         }
 
-        const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
+        // Validate required fields
+        if (!screenshot || !paymentMethod) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required fields: screenshot, paymentMethod"
+            });
+        }
+
+        const payment = await Payment.findById(req.params.paymentId);
 
         if (!payment) {
             return res.status(404).json({
@@ -106,28 +113,147 @@ router.post("/verify", async (req, res) => {
             });
         }
 
-        // In a real implementation, you would verify the signature
-        // const crypto = require('crypto');
-        // const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-        //   .update(razorpay_order_id + "|" + razorpay_payment_id)
-        //   .digest('hex');
+        // Determine the user model based on role from token
+        let submittedByModel;
+        switch (user.role) {
+            case 'project-manager':
+                submittedByModel = 'ProjectManagerEmployee';
+                break;
+            case 'sales-employee':
+                submittedByModel = 'SalesEmployeeEmployee';
+                break;
+            case 'teamleader':
+                submittedByModel = 'TeamLeaderEmployee';
+                break;
+            case 'hr':
+                submittedByModel = 'HrEmployee';
+                break;
+            default:
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid user role"
+                });
+        }
 
-        // if (expectedSignature === razorpay_signature) {
-        payment.razorpayPaymentId = razorpay_payment_id;
-        payment.paymentStatus = "Completed";
+        // Create payment submission with user info from token
+        const paymentSubmission = {
+            submittedBy: user.id, // Use authenticated user's ID from token
+            submittedByModel: submittedByModel,
+            screenshot,
+            paymentMethod,
+            transactionId: transactionId || '',
+            additionalNotes: additionalNotes || '',
+            submittedAt: new Date()
+        };
+
+        payment.paymentSubmissions.push(paymentSubmission);
+        payment.paymentStatus = "Processing"; // Move to processing when submission is received
         await payment.save();
-        // }
+
+        // Populate the submission for response
+        await payment.populate('paymentSubmissions.submittedBy', 'name email role');
 
         res.json({
             success: true,
-            message: "Payment verified successfully",
+            message: "Payment submission received successfully",
             data: payment
         });
     } catch (error) {
-        console.error("Error verifying payment:", error);
+        console.error("Error submitting payment:", error);
         res.status(500).json({
             success: false,
-            message: "Error verifying payment",
+            message: "Error submitting payment",
+            error: error.message
+        });
+    }
+});
+
+// Update payment status (for Project Manager)
+router.patch("/:paymentId/status", async (req, res) => {
+    try {
+        const { 
+            paymentStatus, 
+            workStatus, 
+            verificationNotes
+        } = req.body;
+
+        // Get user from token
+        const user = getUserFromToken(req);
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required"
+            });
+        }
+
+        const updateData = {};
+        if (paymentStatus) updateData.paymentStatus = paymentStatus;
+        if (workStatus) updateData.workStatus = workStatus;
+        if (verificationNotes) updateData.verificationNotes = verificationNotes;
+        
+        // If status is being set to Completed, record verification details with authenticated user
+        if (paymentStatus === "Completed") {
+            updateData.verifiedBy = user.id; // Use authenticated user's ID
+            updateData.verifiedAt = new Date();
+        }
+
+        const payment = await Payment.findByIdAndUpdate(
+            req.params.paymentId,
+            updateData,
+            { new: true }
+        ).populate("paymentSubmissions.submittedBy", "name email phone role")
+         .populate("verifiedBy", "name email")
+         .populate("projectManagerId", "name email");
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: "Payment not found"
+            });
+        }
+
+        res.json({
+            success: true,
+            message: "Payment status updated successfully",
+            data: payment
+        });
+    } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).json({
+            success: false,
+            message: "Error updating payment status",
+            error: error.message
+        });
+    }
+});
+
+// Get payment details by ID
+router.get("/:paymentId", async (req, res) => {
+    try {
+        const payment = await Payment.findById(req.params.paymentId)
+            .populate("farmerLeadId", "name phone email")
+            .populate("projectManagerId", "name email")
+            .populate("paymentSubmissions.submittedBy", "name email phone role")
+            .populate("verifiedBy", "name email");
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: "Payment not found"
+            });
+        }
+
+        console.log("Fetched payment details for ID & Name:", payment );
+
+        res.json({
+            success: true,
+            data: payment
+        });
+    } catch (error) {
+        console.error("Error fetching payment details:", error);
+        res.status(500).json({
+            success: false,
+            message: "Error fetching payment details",
             error: error.message
         });
     }
@@ -150,42 +276,6 @@ router.get("/farmer/:farmerId", async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Error fetching payments",
-            error: error.message
-        });
-    }
-});
-
-// Update payment status
-router.patch("/:paymentId/status", async (req, res) => {
-    try {
-        const { paymentStatus, workStatus } = req.body;
-
-        const payment = await Payment.findByIdAndUpdate(
-            req.params.paymentId,
-            {
-                ...(paymentStatus && { paymentStatus }),
-                ...(workStatus && { workStatus })
-            },
-            { new: true }
-        );
-
-        if (!payment) {
-            return res.status(404).json({
-                success: false,
-                message: "Payment not found"
-            });
-        }
-
-        res.json({
-            success: true,
-            message: "Payment status updated successfully",
-            data: payment
-        });
-    } catch (error) {
-        console.error("Error updating payment status:", error);
-        res.status(500).json({
-            success: false,
-            message: "Error updating payment status",
             error: error.message
         });
     }
