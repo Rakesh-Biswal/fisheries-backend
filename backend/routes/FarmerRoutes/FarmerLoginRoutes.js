@@ -1,7 +1,10 @@
 // backend/routes/FarmerRoutes/FarmerLogin.js
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
 const FarmerLead = require("../../models/SALESEMPLOYEE/farmerLeads");
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Check if phone number exists and send OTP
 router.post("/check-phone", async (req, res) => {
@@ -15,7 +18,6 @@ router.post("/check-phone", async (req, res) => {
       });
     }
 
-    // Validate phone number format (10 digits)
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({
@@ -24,7 +26,6 @@ router.post("/check-phone", async (req, res) => {
       });
     }
 
-    // Check if farmer exists in database
     const farmer = await FarmerLead.findOne({ phone });
 
     if (!farmer) {
@@ -34,7 +35,6 @@ router.post("/check-phone", async (req, res) => {
       });
     }
 
-    // Check if farmer is approved (all three approvals)
     const isApproved = farmer.salesEmployeeApproved && 
                       farmer.teamLeaderApproved && 
                       farmer.hrApproved;
@@ -46,7 +46,6 @@ router.post("/check-phone", async (req, res) => {
       });
     }
 
-    // If farmer exists and is approved, return success
     res.json({
       success: true,
       message: "Phone number verified successfully",
@@ -82,10 +81,8 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // Import Firebase Admin dynamically (since it's server-side only)
     const { verifyFirebaseIdToken } = await import('../../lib/firebaseAdmin.js');
 
-    // Verify Firebase token
     let decodedToken;
     try {
       decodedToken = await verifyFirebaseIdToken(idToken);
@@ -96,7 +93,6 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // Check if the phone number in token matches the requested phone
     const tokenPhone = decodedToken.phone_number;
     const formattedRequestPhone = formatPhoneNumber(phone);
     
@@ -107,7 +103,6 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // Check if farmer exists
     const farmer = await FarmerLead.findOne({ phone });
 
     if (!farmer) {
@@ -117,8 +112,15 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // Generate session token (you can use JWT)
     const token = generateFarmerToken(farmer);
+
+    res.cookie("FarmerToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, 
+      path: "/",
+    });
 
     res.json({
       success: true,
@@ -148,7 +150,30 @@ router.post("/verify-otp", async (req, res) => {
   }
 });
 
-// Helper function to format phone number
+// Logout endpoint
+router.post("/logout", (req, res) => {
+  try {
+    res.clearCookie("FarmerToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+
+    res.json({
+      success: true,
+      message: "Logged out successfully"
+    });
+  } catch (error) {
+    console.error("Error during logout:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error during logout",
+      error: error.message
+    });
+  }
+});
+
 function formatPhoneNumber(phoneNumber) {
   const cleaned = phoneNumber.replace(/\D/g, '');
   if (cleaned.length === 10) {
@@ -157,11 +182,20 @@ function formatPhoneNumber(phoneNumber) {
   return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
 }
 
-// Helper function to generate farmer token
 function generateFarmerToken(farmer) {
-  // Implement JWT token generation
-  // For now, return a simple token
-  return `farmer-token-${farmer._id}-${Date.now()}`;
+  const payload = {
+    farmerId: farmer._id.toString(),
+    phone: farmer.phone,
+    name: farmer.name
+  };
+
+  const options = {
+    expiresIn: "7d",
+    issuer: "fisheries-app",
+    subject: farmer._id.toString()
+  };
+
+  return jwt.sign(payload, JWT_SECRET, options);
 }
 
 module.exports = router;
