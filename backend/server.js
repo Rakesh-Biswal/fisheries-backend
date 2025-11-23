@@ -49,7 +49,8 @@ const projectManagerPaymentRoutes = require("./routes/ProjectManagerRoutes/payme
 const projectManagerDashboardRoutes = require("./routes/ProjectManagerRoutes/dashboard");
 
 //Farmer Routes
-const farmerLoginRoutes = require('./routes/FarmerRoutes/FarmerLoginRoutes');
+const farmerLoginRoutes = require("./routes/FarmerRoutes/FarmerLoginRoutes");
+const farmerRoutes = require("./routes/FarmerRoutes/farmerRoutes");
 
 const app = express();
 
@@ -156,7 +157,8 @@ app.use("/api/project-manager/payments", projectManagerPaymentRoutes);
 app.use("/api/project-manager/dashboard", projectManagerDashboardRoutes);
 
 //Farmer Routes
-app.use('/api/farmer/login', farmerLoginRoutes);
+app.use("/api/farmer/login", farmerLoginRoutes);
+app.use("/api/farmer", farmerRoutes);
 
 // Health Check Route
 app.get("/api/health", (req, res) => {

@@ -1,4 +1,3 @@
-// lib/emailService.js - Welcome Message Only Version
 const SibApiV3Sdk = require("sib-api-v3-sdk");
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
 
@@ -95,7 +94,7 @@ const sendEmail = async (options) => {
 };
 
 /**
- * Send farmer welcome email (No credentials included)
+ * Send farmer welcome email (No credentials included) - KEEP THIS AS IS
  */
 const sendFarmerWelcomeEmail = async (farmerEmail, farmerName, phone) => {
   try {
@@ -349,6 +348,265 @@ const sendFarmerWelcomeEmail = async (farmerEmail, farmerName, phone) => {
 };
 
 /**
+ * NEW: Send payment status update email to farmer
+ */
+const sendPaymentStatusEmail = async (
+  farmerEmail,
+  farmerName,
+  paymentTitle,
+  status,
+  notes,
+  amount
+) => {
+  try {
+    console.log(
+      `💰 Preparing payment status email for: ${farmerName} (${farmerEmail})`
+    );
+
+    const subject = `Payment Status Update: ${paymentTitle}`;
+
+    const statusMessages = {
+      Completed: "has been approved and completed",
+      Processing: "is being processed",
+      Failed: "has failed",
+      Cancelled: "has been cancelled",
+      Pending: "is pending review",
+    };
+
+    const statusMessage = statusMessages[status] || "status has been updated";
+
+    const statusColors = {
+      Completed: "#10b981",
+      Processing: "#3b82f6",
+      Failed: "#ef4444",
+      Cancelled: "#6b7280",
+      Pending: "#f59e0b",
+    };
+
+    const statusColor = statusColors[status] || "#6b7280";
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { 
+            font-family: 'Arial', sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f8f9fa;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          }
+          .header { 
+            background: linear-gradient(135deg, #007AFF, #0056CC);
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+          }
+          .content { 
+            padding: 30px; 
+          }
+          .payment-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+          }
+          .amount {
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            color: #007AFF;
+            margin: 15px 0;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 10px 0;
+          }
+          .notes-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 4px solid #007AFF;
+          }
+          .cta-button {
+            display: inline-block;
+            background: #007AFF;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 20px 0;
+          }
+          .footer { 
+            text-align: center; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 12px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🐟 Diga Darshan App</h1>
+            <p>Payment Status Update</p>
+          </div>
+          
+          <div class="content">
+            <h2>Hello ${farmerName},</h2>
+            <p>We wanted to update you on the status of your payment. Your payment for <strong>"${paymentTitle}"</strong> ${statusMessage}.</p>
+            
+            <div class="payment-card">
+              <h3 style="margin-top: 0; color: #333;">Payment Details</h3>
+              
+              <div class="amount">₹${amount}</div>
+              
+              <div class="status-badge" style="background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40;">
+                Status: ${status}
+              </div>
+              
+              ${
+                notes
+                  ? `
+                <div class="notes-box">
+                  <strong>📝 Verification Notes:</strong>
+                  <p style="margin: 8px 0 0 0; color: #666;">${notes}</p>
+                </div>
+              `
+                  : ""
+              }
+              
+              <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 6px;">
+                <p style="margin: 0; color: #0369a1; font-size: 14px;">
+                  <strong>💡 Next Steps:</strong> 
+                  ${
+                    status === "Completed"
+                      ? "Your payment has been verified. The work will proceed as scheduled."
+                      : status === "Processing"
+                      ? "We are reviewing your payment submission. You will be notified once verified."
+                      : status === "Failed"
+                      ? "Please contact our support team for assistance with this payment."
+                      : "Please check your dashboard for any required actions."
+                  }
+                </p>
+              </div>
+            </div>
+            
+            <div style="text-align: center;">
+              <a href="${
+                process.env.FRONTEND_URL || "https://yourapp.com"
+              }/dashboard" class="cta-button">
+                View Dashboard
+              </a>
+            </div>
+            
+            <p style="color: #666; margin-top: 25px;">
+              If you have any questions about this payment or need assistance, please don't hesitate to contact our support team.
+            </p>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 0; color: #856404; font-size: 14px;">
+                <strong>📞 Support Contact:</strong><br>
+                Phone: 1800-123-4567<br>
+                Email: support@digadarshan.com
+              </p>
+            </div>
+            
+            <p style="text-align: center;">
+              <strong>Best regards,<br>The Diga Darshan Team</strong>
+            </p>
+          </div>
+          
+          <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+            <p>© ${new Date().getFullYear()} Diga Darshan App. All rights reserved.</p>
+            <p>Diga Darshan Group | Transforming Aquaculture Through Technology</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textContent = `
+      Diga Darshan App - Payment Status Update
+      
+      Hello ${farmerName},
+      
+      Your payment for "${paymentTitle}" ${statusMessage}.
+      
+      PAYMENT DETAILS:
+      Amount: ₹${amount}
+      Status: ${status}
+      ${notes ? `Notes: ${notes}` : ""}
+      
+      NEXT STEPS:
+      ${
+        status === "Completed"
+          ? "Your payment has been verified. The work will proceed as scheduled."
+          : status === "Processing"
+          ? "We are reviewing your payment submission. You will be notified once verified."
+          : status === "Failed"
+          ? "Please contact our support team for assistance with this payment."
+          : "Please check your dashboard for any required actions."
+      }
+      
+      View your dashboard: ${
+        process.env.FRONTEND_URL || "https://yourapp.com"
+      }/dashboard
+      
+      If you have questions, contact our support team:
+      Phone: 1800-123-4567
+      Email: support@digadarshan.com
+      
+      Best regards,
+      The Diga Darshan Team
+      
+      ---
+      This is an automated message. Please do not reply to this email.
+      © ${new Date().getFullYear()} Diga Darshan App. All rights reserved.
+      Diga Darshan Group | Transforming Aquaculture Through Technology
+    `;
+
+    const result = await sendEmail({
+      to: farmerEmail,
+      subject,
+      htmlContent,
+      textContent,
+      senderName: "Diga Darshan Payments",
+      senderEmail: "payments@digadarshan.com",
+    });
+
+    console.log(`✅ Payment status email sent to ${farmerEmail}`);
+    return result;
+  } catch (error) {
+    console.error(
+      `❌ Failed to send payment status email to ${farmerEmail}:`,
+      error
+    );
+    throw error;
+  }
+};
+
+/**
  * Send account credentials email (separate from welcome email)
  */
 const sendAccountCredentialsEmail = async (
@@ -509,6 +767,7 @@ const testEmailService = async () => {
 module.exports = {
   sendEmail,
   sendFarmerWelcomeEmail,
+  sendPaymentStatusEmail, // NEW: Added payment status email
   sendAccountCredentialsEmail,
   testEmailService,
   validateEmailConfig,

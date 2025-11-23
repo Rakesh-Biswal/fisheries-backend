@@ -3,6 +3,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 const FarmerLead = require("../../models/SALESEMPLOYEE/farmerLeads");
+const { FarmerAuth } = require("../../middleware/authMiddleware");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -197,5 +198,31 @@ function generateFarmerToken(farmer) {
 
   return jwt.sign(payload, JWT_SECRET, options);
 }
+
+router.get("/profile", FarmerAuth, async (req, res) => {
+  try {
+    const farmer = await FarmerLead.findById(req.farmer.id).select(
+      "name phone email address farmSize farmType farmingExperience preferredFishType previousCrops notes"
+    );
+
+    if (!farmer) {
+      return res.status(404).json({
+        success: false,
+        message: "Farmer not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: farmer,
+    });
+  } catch (error) {
+    console.error("Error fetching farmer profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching farmer profile",
+    });
+  }
+});
 
 module.exports = router;
