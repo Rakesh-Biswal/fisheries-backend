@@ -17,7 +17,8 @@ const attendanceSchema = new mongoose.Schema(
         "HrEmployee",
         "AccountantEmployee",
         "TeleCallerEmployee",
-        "SalesEmployeeEmployee", // ADD THIS LINE
+        "SalesEmployeeEmployee",
+        "ProjectManagerEmployee",
       ],
     },
 
@@ -29,15 +30,17 @@ const attendanceSchema = new mongoose.Schema(
 
     department: {
       type: String,
-      required: false, // Make optional
+      required: false,
       enum: [
         "Team Leader",
         "HR",
         "Accountant",
         "Tele Caller",
         "Field Executive",
+        "Project Manager",
+        "Sales Executive",
       ],
-      default: "Team Leader",
+      default: null,
     },
 
     // Date and time
@@ -111,7 +114,7 @@ const attendanceSchema = new mongoose.Schema(
 
     workType: {
       type: String,
-      default: "Field Work",
+      default: "Office Work",
     },
 
     // Additional fields

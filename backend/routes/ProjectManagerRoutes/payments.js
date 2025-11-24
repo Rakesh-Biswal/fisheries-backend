@@ -1,11 +1,72 @@
 const express = require("express");
 const router = express.Router();
 const Payment = require("../../models/PAYMENTS/Payment");
-const { ProjectManagerAuth } = require("../../middleware/authMiddleware");
+const ProjectManagerAuth = require("./ProjectManagerAuthMiddlewear"); // Correct import path
 const { sendPaymentStatusEmail } = require("../../lib/emailService");
 
 // Apply project manager auth middleware to all routes
 router.use(ProjectManagerAuth);
+
+
+// Get all payments for project manager with farmer details
+router.get("/", async (req, res) => {
+  try {
+    const user = req.pm;
+
+    const payments = await Payment.find({ projectManagerId: user.id })
+      .populate("farmerLeadId", "name phone email address farmSize farmType")
+      .populate("projectManagerId", "name email")
+      .populate("verifiedBy", "name email")
+      .populate("paymentSubmissions.submittedBy", "name email phone role")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: payments,
+      count: payments.length,
+    });
+  } catch (error) {
+    console.error("Error fetching payments:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching payments",
+      error: error.message,
+    });
+  }
+});
+
+// Get payment statistics (optional - for future use)
+router.get("/statistics", async (req, res) => {
+  try {
+    const user = req.pm;
+
+    const payments = await Payment.find({ projectManagerId: user.id });
+    
+    const statistics = {
+      total: payments.length,
+      completed: payments.filter(p => p.paymentStatus === 'Completed').length,
+      pending: payments.filter(p => p.paymentStatus === 'Pending').length,
+      processing: payments.filter(p => p.paymentStatus === 'Processing').length,
+      failed: payments.filter(p => p.paymentStatus === 'Failed').length,
+      totalAmount: payments.reduce((sum, p) => sum + p.amount, 0),
+      completedAmount: payments
+        .filter(p => p.paymentStatus === 'Completed')
+        .reduce((sum, p) => sum + p.amount, 0)
+    };
+
+    res.json({
+      success: true,
+      data: statistics
+    });
+  } catch (error) {
+    console.error("Error fetching payment statistics:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching payment statistics",
+      error: error.message,
+    });
+  }
+});
 
 // Create payment
 router.post("/create", async (req, res) => {
@@ -20,7 +81,7 @@ router.post("/create", async (req, res) => {
     } = req.body;
 
     // Get user from request (already authenticated by middleware)
-    const user = req.projectManager;
+    const user = req.pm; // Changed from req.projectManager to req.pm
 
     // Validate required fields
     if (
@@ -70,7 +131,7 @@ router.post("/:paymentId/submit-payment", async (req, res) => {
       req.body;
 
     // Get user from request (already authenticated by middleware)
-    const user = req.projectManager;
+    const user = req.pm; // Changed from req.projectManager to req.pm
 
     // Validate required fields
     if (!screenshot || !paymentMethod) {
@@ -128,7 +189,7 @@ router.patch("/:paymentId/status", async (req, res) => {
     const { paymentStatus, workStatus, verificationNotes } = req.body;
 
     // Get user from request (already authenticated by middleware)
-    const user = req.projectManager;
+    const user = req.pm; // Changed from req.projectManager to req.pm
 
     const payment = await Payment.findById(req.params.paymentId).populate(
       "farmerLeadId",
@@ -255,7 +316,7 @@ router.get("/farmer/:farmerId", async (req, res) => {
 // Get all payments for project manager
 router.get("/", async (req, res) => {
   try {
-    const user = req.projectManager;
+    const user = req.pm; // Changed from req.projectManager to req.pm
 
     const payments = await Payment.find({ projectManagerId: user.id })
       .populate("farmerLeadId", "name phone email")
