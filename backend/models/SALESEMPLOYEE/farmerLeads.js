@@ -22,13 +22,13 @@ const FarmerLeadSchema = new mongoose.Schema(
     taskId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TLTask",
-      required: true, // Optional - if submitted from a specific task
+      required: false, // CHANGED: Made optional
     },
 
     // ===== Sales Employee Tracking =====
     salesEmployeeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "SalesEmployeeEmployee",
       required: true,
     },
     submissionLocation: {
@@ -48,6 +48,9 @@ const FarmerLeadSchema = new mongoose.Schema(
     salesEmployeeApproved: { type: Boolean, default: null }, // true/false/null
     teamLeaderApproved: { type: Boolean, default: true },
     hrApproved: { type: Boolean, default: true },
+
+    // ===== Password for Farmer Login =====
+    temporaryPassword: { type: String }, // Auto-generated temporary password
 
     // ===== Internal Tracking =====
     createdAt: { type: Date, default: Date.now },

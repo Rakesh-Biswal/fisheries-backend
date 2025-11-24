@@ -50,9 +50,11 @@ const farmerLeadRoutes = require("./routes/SalesEmployeeRoutes/farmerLeads");
 const projectManagerFarmerRoutes = require("./routes/ProjectManagerRoutes/farmers");
 const projectManagerPaymentRoutes = require("./routes/ProjectManagerRoutes/payments");
 const projectManagerDashboardRoutes = require("./routes/ProjectManagerRoutes/dashboard");
+const projectManagerAttendanceRoutes = require("./routes/ProjectManagerRoutes/attendance");
 
 //Farmer Routes
-const farmerLoginRoutes = require('./routes/FarmerRoutes/FarmerLoginRoutes');
+const farmerLoginRoutes = require("./routes/FarmerRoutes/FarmerLoginRoutes");
+const farmerRoutes = require("./routes/FarmerRoutes/farmerRoutes");
 
 const app = express();
 
@@ -159,9 +161,11 @@ app.use("/api/sales-employee", farmerLeadRoutes);
 app.use("/api/project-manager/farmers", projectManagerFarmerRoutes);
 app.use("/api/project-manager/payments", projectManagerPaymentRoutes);
 app.use("/api/project-manager/dashboard", projectManagerDashboardRoutes);
+app.use("/api/pm/attendance", projectManagerAttendanceRoutes);
 
 //Farmer Routes
-app.use('/api/farmer/login', farmerLoginRoutes);
+app.use("/api/farmer/login", farmerLoginRoutes);
+app.use("/api/farmer", farmerRoutes);
 
 // Health Check Route
 app.get("/api/health", (req, res) => {

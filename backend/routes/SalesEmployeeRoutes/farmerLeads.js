@@ -3,8 +3,35 @@ const router = express.Router();
 const FarmerLead = require("../../models/SALESEMPLOYEE/farmerLeads");
 const FarmerLand_II = require("../../models/SALESEMPLOYEE/farmerLeads_II");
 const { SalesEmployeeAuth } = require("../../middleware/authMiddleware");
+const { sendFarmerWelcomeEmail } = require("../../lib/emailService");
 
-// Create new farmer lead - FIXED AUTH
+// Helper function to generate random password
+const generateTemporaryPassword = () => {
+  const length = 8;
+  const charset =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+};
+
+
+router.get("/test-email", SalesEmployeeAuth, async (req, res) => {
+  try {
+    const testResult = await testEmailService();
+    res.json(testResult);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+
+// Create new farmer lead - ENHANCED EMAIL HANDLING
 router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
   try {
     const {
@@ -31,6 +58,7 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
     console.log("📋 Data received:", {
       name,
       phone,
+      email: email || "No email provided",
       address: address ? `${address.substring(0, 50)}...` : "empty",
       location: submissionLocation,
       photoCount: salesEmployeePhotos ? salesEmployeePhotos.length : 0,
@@ -72,6 +100,10 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
+    // Generate temporary password
+    const temporaryPassword = generateTemporaryPassword();
+    console.log("🔐 Generated temporary password for farmer");
+
     // Create new farmer lead
     const farmerLead = new FarmerLead({
       name,
@@ -91,11 +123,12 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
       taskId: taskId,
       submissionLocation,
       salesEmployeePhotos,
-      salesEmployeeId: req.salesEmployee.id, // Use the authenticated sales employee ID
+      salesEmployeeId: req.salesEmployee.id,
       nextFollowUpDate: nextFollowUpDate
         ? new Date(nextFollowUpDate)
         : undefined,
-      salesEmployeeApproved: true, // Auto-approve by sales employee
+      salesEmployeeApproved: true,
+      temporaryPassword, // Store the generated password
     });
 
     await farmerLead.save();
@@ -104,14 +137,65 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
       `✅ New farmer lead created by ${req.salesEmployee.name}: ${name}`
     );
     console.log(`📝 Lead ID: ${farmerLead._id}`);
+    console.log(`🔐 Temporary Password: ${temporaryPassword}`);
     if (taskId) console.log(`📋 Associated with task: ${taskId}`);
     if (nextFollowUpDate) console.log(`🔔 Next follow-up: ${nextFollowUpDate}`);
 
-    res.json({
+    // Enhanced email sending with better error handling
+    let emailStatus = "not_sent";
+    let emailError = null;
+
+    if (email) {
+      try {
+        console.log(`📧 Attempting to send welcome email to: ${email}`);
+
+        await sendFarmerWelcomeEmail(email, name, phone, temporaryPassword);
+        emailStatus = "sent";
+        console.log(`✅ Welcome email sent successfully to: ${email}`);
+      } catch (emailError) {
+        emailStatus = "failed";
+        emailError = emailError.message;
+        console.error(
+          `❌ Failed to send welcome email to ${email}:`,
+          emailError
+        );
+
+        // Don't fail the whole request if email fails, but log it
+        console.log(
+          "⚠️ Farmer lead created successfully, but email failed. Continuing..."
+        );
+      }
+    } else {
+      emailStatus = "no_email";
+      console.log("ℹ️ No email provided, skipping welcome email");
+    }
+
+    // Prepare response with email status
+    const response = {
       success: true,
       message: "Farmer lead created successfully",
-      data: farmerLead,
-    });
+      data: {
+        ...farmerLead.toObject(),
+        emailStatus: {
+          status: emailStatus,
+          message:
+            emailStatus === "sent"
+              ? "Welcome email sent successfully"
+              : emailStatus === "failed"
+              ? `Email failed: ${emailError}`
+              : emailStatus === "no_email"
+              ? "No email provided"
+              : "Unknown status",
+        },
+      },
+    };
+
+    // Add email warning if email failed
+    if (emailStatus === "failed") {
+      response.warning = "Farmer lead created but welcome email failed to send";
+    }
+
+    res.json(response);
   } catch (error) {
     console.error("❌ Error creating farmer lead:", error);
     res.status(500).json({
@@ -198,28 +282,43 @@ router.get("/clients/progress", SalesEmployeeAuth, async (req, res) => {
   }
 });
 
-// Get client details with all data
 router.get("/clients/:id", SalesEmployeeAuth, async (req, res) => {
   try {
+    console.log("🔍 Fetching client details for ID:", req.params.id);
+    console.log("👤 Sales Employee ID:", req.salesEmployee.id);
+
     const farmerLead = await FarmerLead.findOne({
       _id: req.params.id,
       salesEmployeeId: req.salesEmployee.id,
     });
 
     if (!farmerLead) {
+      console.log("❌ Farmer lead not found or access denied");
       return res.status(404).json({
         success: false,
         message: "Client not found",
       });
     }
 
-    const intermediate = await FarmerLand_II.findOne({
-      farmerLeadId: farmerLead._id,
-    });
+    console.log("✅ Farmer lead found:", farmerLead.name);
+
+    // Check for intermediate data
+    let intermediate = null;
+    try {
+      intermediate = await FarmerLand_II.findOne({
+        farmerLeadId: farmerLead._id,
+      });
+      console.log("📊 Intermediate data found:", !!intermediate);
+    } catch (intermediateError) {
+      console.log(
+        "ℹ️ No intermediate data found or FarmerLand_II not available"
+      );
+      // Continue without intermediate data
+    }
 
     let stage = "basic";
     let hasIntermediate = !!intermediate;
-    let hasAdvanced = false; // Will update when advanced form is implemented
+    let hasAdvanced = false;
     let completed = false;
     let nextStep = "intermediate";
 
@@ -248,15 +347,17 @@ router.get("/clients/:id", SalesEmployeeAuth, async (req, res) => {
       nextStep,
     };
 
+    console.log(`✅ Client details prepared for: ${farmerLead.name}`);
     res.json({
       success: true,
       data: clientDetails,
     });
   } catch (error) {
-    console.error("Error fetching client details:", error);
+    console.error("❌ Error fetching client details:", error);
     res.status(500).json({
       success: false,
       message: "Server error while fetching client details",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -344,6 +445,66 @@ router.post("/land-details", SalesEmployeeAuth, async (req, res) => {
       success: false,
       message: "Server error while creating land details",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// Check if farmer exists (for OTP login)
+router.get("/check-farmer", async (req, res) => {
+  try {
+    const { phone } = req.query;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    console.log(`🔍 Checking farmer existence for phone: ${phone}`);
+
+    // Find farmer by phone number
+    const farmer = await FarmerLead.findOne({
+      phone: phone,
+      // Add approval checks if needed
+      // teamLeaderApproved: true,
+      // hrApproved: true
+    }).select(
+      "name phone address createdAt farmSize farmType farmingExperience"
+    );
+
+    if (farmer) {
+      console.log(`✅ Farmer found: ${farmer.name} (${farmer.phone})`);
+
+      return res.json({
+        success: true,
+        exists: true,
+        farmer: {
+          id: farmer._id,
+          name: farmer.name,
+          phone: farmer.phone,
+          address: farmer.address,
+          farmSize: farmer.farmSize,
+          farmType: farmer.farmType,
+          farmingExperience: farmer.farmingExperience,
+          joinedDate: farmer.createdAt,
+        },
+      });
+    } else {
+      console.log(`❌ No farmer found with phone: ${phone}`);
+
+      return res.json({
+        success: true,
+        exists: false,
+        message:
+          "No farmer account found with this phone number. Please contact your sales representative.",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error checking farmer:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while checking farmer account",
     });
   }
 });
