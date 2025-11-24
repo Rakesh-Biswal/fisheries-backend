@@ -10,7 +10,7 @@ const PaymentSubmissionSchema = new mongoose.Schema({
     submittedByModel: {
         type: String,
         required: true,
-        enum: ['ProjectManagerEmployee', 'SalesEmployeeEmployee', 'TeamLeaderEmployee', 'HrEmployee']
+        enum: ['ProjectManagerEmployee', 'SalesEmployeeEmployee', 'TeamLeaderEmployee', 'HrEmployee', 'FarmerLead']
     },
     screenshot: {
         type: String, // Cloudinary URL

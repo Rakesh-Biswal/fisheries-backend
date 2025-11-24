@@ -279,6 +279,7 @@ router.get("/activities/recent", async (req, res) => {
 });
 
 // ========== PAYMENT ROUTES ==========
+//routes/FarmerRoutes/farmerRoutes.js
 
 // Get pending payments for farmer
 router.get("/payments/pending", async (req, res) => {
