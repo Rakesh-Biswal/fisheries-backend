@@ -8,7 +8,7 @@ const ceoAuth = require('./CeoAuthMiddlewear');
 router.get('/fetch', ceoAuth, async (req, res) => {
   try {
     const ceo = await Ceo.findById(req.ceo.id).select('-password');
-    
+
     if (!ceo) {
       return res.status(404).json({
         success: false,
@@ -43,9 +43,9 @@ router.put('/update-profile-data', ceoAuth, async (req, res) => {
     }
 
     // Check if email is already taken by another CEO
-    const existingCeo = await Ceo.findOne({ 
-      email: email.toLowerCase(), 
-      _id: { $ne: req.ceo.id } 
+    const existingCeo = await Ceo.findOne({
+      email: email.toLowerCase(),
+      _id: { $ne: req.ceo.id }
     });
 
     if (existingCeo) {
