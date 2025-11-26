@@ -31,6 +31,9 @@ const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
 const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
 const hrProfileRoutes = require("./routes/HrRoutes/HrProfileSection");
 const AttendanceManagementRoutes = require("./routes/HrRoutes/AttendanceManagementSection");
+const holidayRoutes = require("./routes/HrRoutes/holidayRoutes");
+const hrAttendanceDashboard = require("./routes/HrRoutes/AttendanceDashboard");
+
 
 // TL routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
@@ -143,6 +146,9 @@ app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
 app.use("/api/hr/meetings", MeetingRoutes);
 app.use("/api/hr/attendance-management", AttendanceManagementRoutes);
+app.use("/api/hr/holidays", holidayRoutes);
+app.use("/api/hr/attendance-dashboard", hrAttendanceDashboard);
+
 
 // TL routes
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
