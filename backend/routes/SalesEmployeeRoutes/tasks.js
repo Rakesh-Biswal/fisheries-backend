@@ -1,8 +1,8 @@
+const mongoose = require("mongoose");
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose");
 const TLTask = require("../../models/TEAMLEADER/TLTask");
-const { SalesEmployeeAuth } = require("../../middleware/authMiddleware"); // Fix the import path
+const { SalesEmployeeAuth } = require("../../middleware/authMiddleware");
 const cloudinary = require("cloudinary").v2;
 
 cloudinary.config({

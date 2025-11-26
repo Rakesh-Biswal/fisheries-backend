@@ -17,7 +17,6 @@ const generateTemporaryPassword = () => {
   return password;
 };
 
-
 router.get("/test-email", SalesEmployeeAuth, async (req, res) => {
   try {
     const testResult = await testEmailService();
@@ -29,7 +28,6 @@ router.get("/test-email", SalesEmployeeAuth, async (req, res) => {
     });
   }
 });
-
 
 // Create new farmer lead - ENHANCED EMAIL HANDLING
 router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {

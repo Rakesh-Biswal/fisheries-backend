@@ -28,6 +28,7 @@ const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
 const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
 const hrProfileRoutes = require("./routes/HrRoutes/HrProfileSection");
 const AttendanceManagementRoutes = require("./routes/HrRoutes/AttendanceManagementSection");
+const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
 
 // TL routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
@@ -36,12 +37,13 @@ const TLProfileRoutes = require("./routes/TeamLeaderRoutes/TeamLeaderProfileSect
 const TLAttendanceRoutes = require("./routes/TeamLeaderRoutes/attendance");
 const TLTeamRoutes = require("./routes/TeamLeaderRoutes/teams");
 
-// Sales Employee routes
-const salesEmployeeMeetingRoutes = require("./routes/SalesEmployeeRoutes/S_meetings");
-const salesEmployeeRoutes = require("./routes/HrRoutes/SalesEmployeeSection");
+// Sales Employee routes (organized)
+const salesEmployeeAuthRoutes = require("./routes/SalesEmployeeRoutes/auth");
+const salesEmployeeMeetingRoutes = require("./routes/SalesEmployeeRoutes/meetings");
 const salesEmployeeTaskRoutes = require("./routes/SalesEmployeeRoutes/tasks");
-const salesEmployeeAttendanceRoutes = require("./routes/SalesEmployeeRoutes/S_attendance");
-const farmerLeadRoutes = require("./routes/SalesEmployeeRoutes/farmerLeads");
+const salesEmployeeAttendanceRoutes = require("./routes/SalesEmployeeRoutes/attendance");
+const salesEmployeeFarmerRoutes = require("./routes/SalesEmployeeRoutes/farmerLeads");
+const salesEmployeeHolidayRoutes = require("./routes/SalesEmployeeRoutes/holidays");
 
 // Project Manager Routes
 const projectManagerFarmerRoutes = require("./routes/ProjectManagerRoutes/farmers");
@@ -147,10 +149,13 @@ app.use("/api/tl/attendance", TLAttendanceRoutes);
 app.use("/api/tl/teams", TLTeamRoutes);
 
 // Sales Employee routes
+app.use("/api/sales-employee/auth", salesEmployeeAuthRoutes);
+app.use("/api/sales-employee/meetings", salesEmployeeMeetingRoutes);
 app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
 app.use("/api/sales-employee/attendance", salesEmployeeAttendanceRoutes);
-app.use("/api/sales-employee/meetings", salesEmployeeMeetingRoutes);
-app.use("/api/sales-employee", farmerLeadRoutes);
+app.use("/api/sales-employee/farmer-leads", salesEmployeeFarmerRoutes);
+app.use("/api/sales-employee/holidays", salesEmployeeHolidayRoutes);
+
 
 // Project Manager Routes
 app.use("/api/project-manager/farmers", projectManagerFarmerRoutes);

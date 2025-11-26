@@ -1,60 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const Attendance = require("../../models/ATTENDANCE/Attendance");
+const { SalesEmployeeAuth } = require("../../middleware/authMiddleware");
 
-// Middleware to verify sales employee
-const SalesEmployeeAuth = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "No token provided",
-      });
-    }
-
-    const jwt = require("jsonwebtoken");
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const SalesEmployeeEmployee = require("../../models/SALESEMPLOYEE/SalesEmployeeEmployee");
-    const employee = await SalesEmployeeEmployee.findById(decoded.id);
-
-    if (!employee) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token",
-      });
-    }
-
-    req.employee = {
-      id: employee._id,
-      name: employee.name,
-      email: employee.companyEmail,
-      role: employee.role,
-    };
-
-    next();
-  } catch (error) {
-    console.error("Auth error:", error);
-    return res.status(401).json({
-      success: false,
-      message: "Invalid token",
-    });
-  }
-};
-
-// Get active session with timeout handling
-router.get("/active-session", SalesEmployeeAuth, async (req, res) => {
+// Get today's attendance status
+router.get("/today", SalesEmployeeAuth, async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const attendance = await Attendance.findOne({
-      employeeId: req.employee.id,
+      employeeId: req.salesEmployee.id,
       employeeModel: "SalesEmployeeEmployee",
       date: today,
-      workModeOffTime: null, // Only active sessions
     });
 
     if (!attendance) {
@@ -65,16 +23,16 @@ router.get("/active-session", SalesEmployeeAuth, async (req, res) => {
     }
 
     const responseData = {
-      isActive: true,
+      isActive: !attendance.workModeOffTime,
       workModeOnTime: attendance.workModeOnTime,
+      workModeOffTime: attendance.workModeOffTime,
+      totalWorkDuration: attendance.totalWorkDuration,
       totalDistanceTravelled: attendance.totalDistanceTravelled,
       status: attendance.status,
       workType: attendance.workType,
       startingLocation: attendance.workModeOnCoordinates,
-      currentLocation:
-        attendance.travelLogs.length > 0
-          ? attendance.travelLogs[attendance.travelLogs.length - 1].coordinates
-          : attendance.workModeOnCoordinates,
+      endLocation: attendance.workModeOffCoordinates,
+      travelLogs: attendance.travelLogs,
     };
 
     res.json({
@@ -82,32 +40,24 @@ router.get("/active-session", SalesEmployeeAuth, async (req, res) => {
       data: responseData,
     });
   } catch (error) {
-    console.error("Error fetching active session:", error);
+    console.error("Error checking today attendance:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch active session",
+      message: "Failed to fetch attendance data",
     });
   }
 });
 
-// Start work mode with improved error handling
+// Start work mode
 router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
   try {
-    const {
-      coordinates,
-      workType = "Field Work",
-      imageURL,
-      existingDistance = 0,
-      isResuming = false,
-    } = req.body;
+    const { coordinates, workType = "Field Work", imageURL } = req.body;
 
     console.log("Sales Employee Work mode on request:", {
-      employee: req.employee.id,
+      employee: req.salesEmployee.id,
       coordinates,
       workType,
       hasImage: !!imageURL,
-      existingDistance,
-      isResuming,
     });
 
     if (!coordinates || !coordinates.latitude || !coordinates.longitude) {
@@ -117,113 +67,62 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
-    // Get today's date
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // FIRST: Check for existing ACTIVE session
+    // Check for existing active session
     const existingActiveAttendance = await Attendance.findOne({
-      employeeId: req.employee.id,
+      employeeId: req.salesEmployee.id,
       employeeModel: "SalesEmployeeEmployee",
       date: today,
-      workModeOffTime: null, // Only check active sessions
+      workModeOffTime: null,
     });
 
     if (existingActiveAttendance) {
-      console.log("🔄 Active session found, updating existing record");
-
-      // Update the existing active attendance
-      existingActiveAttendance.workModeOnCoordinates = {
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-      };
-
-      // Save image URL if provided
-      if (imageURL) {
-        existingActiveAttendance.ImageURL = imageURL;
-        console.log("📸 Image URL saved to active session:", imageURL);
-      }
-
-      // Add resume log
-      existingActiveAttendance.travelLogs.push({
-        timestamp: new Date(),
-        coordinates: {
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-        },
-        distanceFromStart: existingDistance,
-        type: "resume_active",
-      });
-
-      await existingActiveAttendance.save();
-
-      const responseData = {
-        isActive: true,
-        workModeOnTime: existingActiveAttendance.workModeOnTime,
-        totalWorkDuration: null,
-        totalDistanceTravelled:
-          existingActiveAttendance.totalDistanceTravelled + existingDistance,
-        status: existingActiveAttendance.status,
-        workType: existingActiveAttendance.workType,
-        startingLocation: existingActiveAttendance.workModeOnCoordinates,
-        imageURL: existingActiveAttendance.ImageURL,
-      };
-
-      return res.json({
-        success: true,
-        message: "Active work session resumed successfully",
-        data: responseData,
+      return res.status(400).json({
+        success: false,
+        message: "Work mode is already active for today",
       });
     }
 
-    // SECOND: Check for COMPLETED session today that we can EXTEND
+    // Check for completed session today
     const todaysCompletedSession = await Attendance.findOne({
-      employeeId: req.employee.id,
+      employeeId: req.salesEmployee.id,
       employeeModel: "SalesEmployeeEmployee",
       date: today,
-      workModeOffTime: { $ne: null }, // Completed sessions
-    }).sort({ workModeOnTime: -1 }); // Get the latest one
+      workModeOffTime: { $ne: null },
+    }).sort({ workModeOnTime: -1 });
 
     if (todaysCompletedSession) {
-      console.log("📅 Found completed session for today, extending it");
-
-      // Re-open the completed session
+      // Extend the completed session
       todaysCompletedSession.workModeOffTime = null;
       todaysCompletedSession.status = "Active";
 
-      // Update coordinates
       todaysCompletedSession.workModeOnCoordinates = {
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
       };
 
-      // Save image URL if provided
       if (imageURL) {
         todaysCompletedSession.ImageURL = imageURL;
-        console.log("📸 Image URL saved to extended session:", imageURL);
       }
 
-      // Add extend entry to travel logs
       todaysCompletedSession.travelLogs.push({
         timestamp: new Date(),
         coordinates: {
           latitude: coordinates.latitude,
           longitude: coordinates.longitude,
         },
-        distanceFromStart:
-          todaysCompletedSession.totalDistanceTravelled + existingDistance,
+        distanceFromStart: todaysCompletedSession.totalDistanceTravelled,
         type: "extend",
       });
-
-      // Update total distance
-      todaysCompletedSession.totalDistanceTravelled += existingDistance;
 
       await todaysCompletedSession.save();
 
       const responseData = {
         isActive: true,
         workModeOnTime: todaysCompletedSession.workModeOnTime,
-        totalWorkDuration: null, // Will be recalculated when ended
+        totalWorkDuration: null,
         totalDistanceTravelled: todaysCompletedSession.totalDistanceTravelled,
         status: todaysCompletedSession.status,
         workType: todaysCompletedSession.workType,
@@ -238,11 +137,9 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
-    // THIRD: Create brand new attendance (no existing session found)
-    console.log("🆕 Creating brand new attendance record");
-
+    // Create new attendance record
     const attendanceData = {
-      employeeId: req.employee.id,
+      employeeId: req.salesEmployee.id,
       employeeModel: "SalesEmployeeEmployee",
       department: "Field Executive",
       date: today,
@@ -253,8 +150,8 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
       },
       workType,
       status: "Active",
-      name: req.employee.name,
-      totalDistanceTravelled: existingDistance,
+      name: req.salesEmployee.name,
+      totalDistanceTravelled: 0,
       ImageURL: imageURL || null,
       travelLogs: [
         {
@@ -263,7 +160,7 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
             latitude: coordinates.latitude,
             longitude: coordinates.longitude,
           },
-          distanceFromStart: existingDistance,
+          distanceFromStart: 0,
           type: "start",
         },
       ],
@@ -293,7 +190,6 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
   } catch (error) {
     console.error("Error starting work mode:", error);
 
-    // Handle specific MongoDB errors
     if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
@@ -317,18 +213,16 @@ router.post("/work-mode-on", SalesEmployeeAuth, async (req, res) => {
   }
 });
 
-// End work mode with improved data handling
+// End work mode
 router.post("/work-mode-off", SalesEmployeeAuth, async (req, res) => {
   try {
     const { coordinates, totalDistance } = req.body;
 
-    // Get today's date
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Find today's active attendance record
     const attendance = await Attendance.findOne({
-      employeeId: req.employee.id,
+      employeeId: req.salesEmployee.id,
       employeeModel: "SalesEmployeeEmployee",
       date: today,
       workModeOffTime: null,
@@ -341,18 +235,15 @@ router.post("/work-mode-off", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
-    // Set work mode off time
     const workModeOffTime = new Date();
     attendance.workModeOffTime = workModeOffTime;
 
-    // Add final coordinates if provided
     if (coordinates && coordinates.latitude && coordinates.longitude) {
       attendance.workModeOffCoordinates = {
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
       };
 
-      // Add final travel log
       attendance.travelLogs.push({
         timestamp: workModeOffTime,
         coordinates: {
@@ -363,18 +254,15 @@ router.post("/work-mode-off", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
-    // Update total distance if provided
     if (totalDistance !== undefined && totalDistance !== null) {
       attendance.totalDistanceTravelled = parseFloat(totalDistance);
     }
 
-    // Calculate total work duration in hours
     const workModeOnTime = new Date(attendance.workModeOnTime);
     const durationMs = workModeOffTime - workModeOnTime;
     const durationHours = durationMs / (1000 * 60 * 60);
     attendance.totalWorkDuration = parseFloat(durationHours.toFixed(2));
 
-    // Determine final status based on work duration
     if (durationHours >= 8) {
       attendance.status = "Present";
     } else if (durationHours >= 4) {
@@ -410,51 +298,6 @@ router.post("/work-mode-off", SalesEmployeeAuth, async (req, res) => {
       success: false,
       message: "Failed to end work mode",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-
-// Get today's attendance status
-router.get("/today", SalesEmployeeAuth, async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const attendance = await Attendance.findOne({
-      employeeId: req.employee.id,
-      employeeModel: "SalesEmployeeEmployee",
-      date: today,
-    });
-
-    if (!attendance) {
-      return res.json({
-        success: true,
-        data: null,
-      });
-    }
-
-    const responseData = {
-      isActive: !attendance.workModeOffTime,
-      workModeOnTime: attendance.workModeOnTime,
-      workModeOffTime: attendance.workModeOffTime,
-      totalWorkDuration: attendance.totalWorkDuration,
-      totalDistanceTravelled: attendance.totalDistanceTravelled,
-      status: attendance.status,
-      workType: attendance.workType,
-      startingLocation: attendance.workModeOnCoordinates,
-      endLocation: attendance.workModeOffCoordinates,
-      travelLogs: attendance.travelLogs,
-    };
-
-    res.json({
-      success: true,
-      data: responseData,
-    });
-  } catch (error) {
-    console.error("Error checking today attendance:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch attendance data",
     });
   }
 });
