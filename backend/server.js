@@ -7,6 +7,9 @@ const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const mongoose = require("mongoose");
 
+
+
+
 // Import Routes
 const allEmployeeAuthRoute = require("./routes/AllEmployeeAuthRoute/login");
 
@@ -18,7 +21,7 @@ const ceoMeetingRoutes = require("./routes/CeoRoutes/MeetingRoutes");
 
 // HR routes
 const hrOverviewRoutes = require("./routes/HrRoutes/HrOverviewSection");
-const teamLeaderRoutes = require("./routes/HrRoutes/TeamLeaderSection");
+const teamLeaderRoutes = require("./routes/HrRoutes/TeamLeaderSection"); // HR Team Leader routes
 const accountantRoutes = require("./routes/HrRoutes/AccountantSection");
 const telecallerRoutes = require("./routes/HrRoutes/TeleCallerSection");
 const projectManagerRoutes = require("./routes/HrRoutes/ProjectManagerSection");
@@ -28,6 +31,9 @@ const attendanceCalendarRoutes = require("./routes/HrRoutes/attendanceRoutes");
 const MeetingRoutes = require("./routes/HrRoutes/MeetingRoutes");
 const hrProfileRoutes = require("./routes/HrRoutes/HrProfileSection");
 const AttendanceManagementRoutes = require("./routes/HrRoutes/AttendanceManagementSection");
+const holidayRoutes = require("./routes/HrRoutes/holidayRoutes");
+const hrAttendanceDashboard = require("./routes/HrRoutes/AttendanceDashboard");
+
 
 // TL routes
 const TLTaskRoutes = require("./routes/TeamLeaderRoutes/TasksMeetingsSection");
@@ -104,6 +110,8 @@ app.use(cookieParser());
 // Static Files
 app.use("/uploads", express.static("uploads"));
 
+
+
 // Root Route
 app.get("/", (req, res) => {
   res.json({
@@ -128,7 +136,7 @@ app.use("/api/ceo/profile", CeoProfileSection);
 // HR routes
 app.use("/api/hr/overview", hrOverviewRoutes);
 app.use("/api/hr/profile", hrProfileRoutes);
-app.use("/api/hr/team-leaders", teamLeaderRoutes);
+app.use("/api/hr/team-leaders", teamLeaderRoutes); // HR Team Leader routes
 app.use("/api/hr/accountants", accountantRoutes);
 app.use("/api/hr/telecaller", telecallerRoutes);
 app.use("/api/hr/sales-employees", salesEmployeeRoutes);
@@ -138,6 +146,9 @@ app.use("/api/hr/attendance-calendar", attendanceCalendarRoutes);
 app.use("/api/hr/tasks-meetings", taskMeetingsRoutes);
 app.use("/api/hr/meetings", MeetingRoutes);
 app.use("/api/hr/attendance-management", AttendanceManagementRoutes);
+app.use("/api/hr/holidays", holidayRoutes);
+app.use("/api/hr/attendance-dashboard", hrAttendanceDashboard);
+
 
 // TL routes
 app.use("/api/tl/tasks-meetings", TLTaskRoutes);
