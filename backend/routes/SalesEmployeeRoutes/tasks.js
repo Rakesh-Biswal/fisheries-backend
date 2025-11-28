@@ -432,25 +432,41 @@ router.post("/:id/submit-response", SalesEmployeeAuth, async (req, res) => {
     const responseData = req.body;
 
     console.log(`📝 Submitting response for task: ${id}`);
-    console.log(
-      "📊 Received FULL response data:",
-      JSON.stringify(responseData, null, 2)
-    );
+    console.log("👤 Sales Employee ID:", salesEmployeeId);
+    console.log("📊 Response data overview:", {
+      responseTitle: responseData.responseTitle,
+      workStatus: responseData.workStatus,
+      imagesCount: responseData.images ? responseData.images.length : 0,
+      completionPercentage: responseData.completionPercentage,
+      keyPointsCount: responseData.keyPoints
+        ? responseData.keyPoints.length
+        : 0,
+    });
 
-    // Validate required fields
+    // Enhanced validation for required fields
     const requiredFields = [
       "responseTitle",
       "responseDescription",
       "workStatus",
       "completionPercentage",
     ];
+
+    const missingFields = [];
     for (const field of requiredFields) {
-      if (!responseData[field]) {
-        return res.status(400).json({
-          success: false,
-          message: `Missing required field: ${field}`,
-        });
+      if (
+        !responseData[field] ||
+        responseData[field].toString().trim() === ""
+      ) {
+        missingFields.push(field);
       }
+    }
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(", ")}`,
+        missingFields,
+      });
     }
 
     // Validate workStatus
@@ -462,10 +478,25 @@ router.post("/:id/submit-response", SalesEmployeeAuth, async (req, res) => {
       "partial-success",
       "delayed",
     ];
+
     if (!validWorkStatus.includes(responseData.workStatus)) {
       return res.status(400).json({
         success: false,
         message: "Invalid work status",
+        validWorkStatus,
+      });
+    }
+
+    // Validate completion percentage
+    const completionPercentage = parseInt(responseData.completionPercentage);
+    if (
+      isNaN(completionPercentage) ||
+      completionPercentage < 0 ||
+      completionPercentage > 100
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Completion percentage must be between 0 and 100",
       });
     }
 
@@ -490,89 +521,143 @@ router.post("/:id/submit-response", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
-    // Process images to match schema - ENHANCED DEBUGGING
+    // ENHANCED: Process images with comprehensive validation
     let processedImages = [];
-    console.log("🖼️ Raw images data received:", responseData.images);
+
+    console.log("🖼️ Starting image processing...");
 
     if (responseData.images && Array.isArray(responseData.images)) {
-      console.log(`🖼️ Processing ${responseData.images.length} images`);
+      console.log(`📸 Processing ${responseData.images.length} images`);
 
       processedImages = responseData.images
         .map((img, index) => {
-          console.log(`🖼️ Image ${index}:`, img);
+          console.log(`🔍 Analyzing image ${index}:`, {
+            type: typeof img,
+            isObject: typeof img === "object",
+            hasUrl: img && typeof img === "object" && img.url,
+            urlLength: img?.url?.length || 0,
+          });
 
-          // If it's already an object with proper structure, use it as-is
-          if (typeof img === "object" && img.url) {
+          // Case 1: Already proper object with URL
+          if (
+            img &&
+            typeof img === "object" &&
+            img.url &&
+            typeof img.url === "string" &&
+            img.url.trim() !== ""
+          ) {
             const processed = {
-              url: img.url,
-              publicId: img.publicId || img.url.split("/").pop().split(".")[0],
+              url: img.url.trim(),
+              publicId: img.publicId || `task_${id}_img_${Date.now()}_${index}`,
               caption: img.caption || "",
             };
-            console.log(`✅ Processed object image ${index}:`, processed);
+
+            console.log(`✅ Valid object image ${index}:`, {
+              urlPreview: `${processed.url.substring(0, 50)}...`,
+              publicId: processed.publicId,
+              captionLength: processed.caption.length,
+            });
+
             return processed;
           }
-          // If it's a string URL, convert to object
+
+          // Case 2: String URL (fallback for old format)
           else if (typeof img === "string" && img.trim() !== "") {
             const processed = {
-              url: img,
-              publicId: img.split("/").pop().split(".")[0],
+              url: img.trim(),
+              publicId: `task_${id}_img_${Date.now()}_${index}`,
               caption: "",
             };
-            console.log(`✅ Processed string image ${index}:`, processed);
+
+            console.log(`✅ Valid string image ${index}:`, {
+              urlPreview: `${processed.url.substring(0, 50)}...`,
+              publicId: processed.publicId,
+            });
+
             return processed;
           }
-          console.log(`❌ Invalid image at index ${index}:`, img);
-          return null;
+
+          // Case 3: Invalid image
+          else {
+            console.log(`❌ Invalid image at index ${index}:`, {
+              type: typeof img,
+              value: img,
+            });
+            return null;
+          }
         })
         .filter((img) => img !== null);
 
-      console.log(`✅ Final processed images: ${processedImages.length}`);
+      console.log(
+        `✅ Final processed images: ${processedImages.length} valid out of ${responseData.images.length} total`
+      );
+
+      // Log each valid image for debugging
+      processedImages.forEach((img, index) => {
+        console.log(`🖼️ Valid image ${index}: ${img.url.substring(0, 30)}...`);
+      });
     } else {
-      console.log("❌ No images array or invalid format");
+      console.log("ℹ️ No images array provided or invalid format");
     }
 
-    console.log("🖼️ Final processed images array:", processedImages);
-
-    // Prepare response object
+    // Prepare comprehensive response object
     const response = {
       submittedAt: new Date(),
-      responseTitle: responseData.responseTitle,
-      responseDescription: responseData.responseDescription,
+      responseTitle: responseData.responseTitle.trim(),
+      responseDescription: responseData.responseDescription.trim(),
       workStatus: responseData.workStatus,
-      keyPoints: responseData.keyPoints || [],
+      keyPoints: Array.isArray(responseData.keyPoints)
+        ? responseData.keyPoints
+            .map((point) => point.toString().trim())
+            .filter((point) => point !== "")
+        : [],
       images: processedImages,
-      challengesFaced: responseData.challengesFaced || "",
-      nextSteps: responseData.nextSteps || "",
-      completionPercentage: Math.min(
-        100,
-        Math.max(0, responseData.completionPercentage)
-      ),
-      rating: responseData.rating || null,
+      challengesFaced: responseData.challengesFaced
+        ? responseData.challengesFaced.trim()
+        : "",
+      nextSteps: responseData.nextSteps ? responseData.nextSteps.trim() : "",
+      completionPercentage: Math.min(100, Math.max(0, completionPercentage)),
+      rating: responseData.rating ? parseInt(responseData.rating) : null,
     };
 
-    console.log(
-      "💾 Final response object to save:",
-      JSON.stringify(response, null, 2)
-    );
+    console.log("💾 Final response object prepared:", {
+      responseTitle: response.responseTitle,
+      workStatus: response.workStatus,
+      completionPercentage: response.completionPercentage,
+      imagesCount: response.images.length,
+      keyPointsCount: response.keyPoints.length,
+      hasChallenges: response.challengesFaced.length > 0,
+      hasNextSteps: response.nextSteps.length > 0,
+      rating: response.rating,
+    });
 
     // Update task with response
     task.response = response;
-    task.status =
-      response.workStatus === "success"
-        ? "completed"
-        : response.workStatus === "partial-success"
-        ? "in-progress"
-        : "in-progress";
+
+    // Update task status based on workStatus
+    if (response.workStatus === "success") {
+      task.status = "completed";
+    } else if (response.workStatus === "partial-success") {
+      task.status = "in-progress";
+    } else {
+      task.status = "in-progress";
+    }
+
     task.progress = response.completionPercentage;
+    task.updatedAt = new Date();
+
+    console.log("💾 Saving task to database...");
 
     await task.save();
 
-    console.log(`✅ Response submitted for task: ${id}`);
-    console.log(
-      "💾 Saved task response:",
-      JSON.stringify(task.response, null, 2)
-    );
+    console.log(`✅ Response submitted successfully for task: ${id}`);
+    console.log("📈 Task updated:", {
+      newStatus: task.status,
+      newProgress: task.progress,
+      responseSubmitted: task.response.submittedAt,
+    });
 
+    // Send success response
     res.json({
       success: true,
       message: "Task response submitted successfully",
@@ -582,10 +667,29 @@ router.post("/:id/submit-response", SalesEmployeeAuth, async (req, res) => {
         progress: task.progress,
         submittedAt: response.submittedAt,
         imagesCount: processedImages.length,
+        keyPointsCount: response.keyPoints.length,
+        workStatus: response.workStatus,
       },
     });
   } catch (error) {
     console.error("❌ Error submitting task response:", error);
+
+    // Enhanced error handling
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        error: error.message,
+      });
+    }
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate response detected",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Failed to submit task response",

@@ -52,26 +52,49 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
     } = req.body;
 
     console.log("📥 Received farmer lead submission");
-    console.log("👤 Sales Employee:", req.salesEmployee);
-    console.log("📋 Data received:", {
-      name,
-      phone,
-      email: email || "No email provided",
-      address: address ? `${address.substring(0, 50)}...` : "empty",
-      location: submissionLocation,
-      photoCount: salesEmployeePhotos ? salesEmployeePhotos.length : 0,
-      taskId: taskId || "Not provided",
-      nextFollowUpDate: nextFollowUpDate || "Not set",
-    });
 
-    // Basic validation for required fields
-    if (!name || !address || !phone) {
+    // Enhanced validation for required fields
+    const requiredFields = {
+      name: "Farmer name",
+      address: "Address",
+      phone: "Phone number",
+    };
+
+    const missingFields = [];
+    for (const [field, label] of Object.entries(requiredFields)) {
+      if (!req.body[field] || req.body[field].trim() === "") {
+        missingFields.push(label);
+      }
+    }
+
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Name, address, and phone are required fields",
+        message: `Missing required fields: ${missingFields.join(", ")}`,
       });
     }
 
+    // Validate phone format
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phone.replace(/\D/g, ""))) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid 10-digit phone number",
+      });
+    }
+
+    // Validate email format if provided
+    if (email && email.trim() !== "") {
+      const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+      if (!emailRegex.test(email.toLowerCase())) {
+        return res.status(400).json({
+          success: false,
+          message: "Please enter a valid email address",
+        });
+      }
+    }
+
+    // Validate location
     if (
       !submissionLocation ||
       !submissionLocation.latitude ||
@@ -83,6 +106,7 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
+    // Validate photos
     if (!salesEmployeePhotos || salesEmployeePhotos.length === 0) {
       return res.status(400).json({
         success: false,
@@ -90,34 +114,59 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
       });
     }
 
-    // Check if sales employee info is available
-    if (!req.salesEmployee || !req.salesEmployee.id) {
-      return res.status(401).json({
+    if (salesEmployeePhotos.length > 4) {
+      return res.status(400).json({
         success: false,
-        message: "Sales employee authentication failed",
+        message: "Maximum 4 photos allowed",
       });
     }
 
-    // Generate temporary password
-    const temporaryPassword = generateTemporaryPassword();
-    console.log("🔐 Generated temporary password for farmer");
+    // Check if phone already exists
+    const existingFarmer = await FarmerLead.findOne({
+      phone: phone.replace(/\D/g, ""),
+    });
 
-    // Create new farmer lead
+    if (existingFarmer) {
+      return res.status(400).json({
+        success: false,
+        message: "A farmer with this phone number already exists",
+      });
+    }
+
+    // Check if email already exists (if provided)
+    if (email && email.trim() !== "") {
+      const existingEmail = await FarmerLead.findOne({
+        email: email.toLowerCase().trim(),
+      });
+
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "A farmer with this email already exists",
+        });
+      }
+    }
+
+    // Rest of the code remains the same...
+    const temporaryPassword = generateTemporaryPassword();
+
     const farmerLead = new FarmerLead({
-      name,
-      address,
-      phone,
-      email: email || undefined,
+      name: name.trim(),
+      address: address.trim(),
+      phone: phone.replace(/\D/g, ""),
+      email: email ? email.toLowerCase().trim() : undefined,
       age: age ? parseInt(age) : undefined,
       gender: gender || undefined,
-      farmSize: farmSize || undefined,
-      farmType: farmType || undefined,
+      farmSize: farmSize ? farmSize.trim() : undefined,
+      farmType: farmType ? farmType.trim() : undefined,
       farmingExperience: farmingExperience
         ? parseInt(farmingExperience)
         : undefined,
       previousCrops: previousCrops || [],
-      preferredFishType: preferredFishType || undefined,
-      notes: notes || undefined,
+      preferredFishType: preferredFishType
+        ? preferredFishType.trim()
+        : undefined,
+      notes: notes ? notes.trim() : undefined,
       taskId: taskId,
       submissionLocation,
       salesEmployeePhotos,
@@ -126,7 +175,7 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
         ? new Date(nextFollowUpDate)
         : undefined,
       salesEmployeeApproved: true,
-      temporaryPassword, // Store the generated password
+      temporaryPassword,
     });
 
     await farmerLead.save();
@@ -196,6 +245,25 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error("❌ Error creating farmer lead:", error);
+
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        success: false,
+        message: `A farmer with this ${field} already exists`,
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(", "),
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Server error while creating farmer lead",
@@ -229,58 +297,62 @@ router.get("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
 });
 
 // Get all clients with progress
-router.get("/clients/progress", SalesEmployeeAuth, async (req, res) => {
-  try {
-    const farmerLeads = await FarmerLead.find({
-      salesEmployeeId: req.salesEmployee.id,
-    }).sort({ createdAt: -1 });
+router.get(
+  "/farmer-leads/clients/progress",
+  SalesEmployeeAuth,
+  async (req, res) => {
+    try {
+      const farmerLeads = await FarmerLead.find({
+        salesEmployeeId: req.salesEmployee.id,
+      }).sort({ createdAt: -1 });
 
-    const clientsWithProgress = await Promise.all(
-      farmerLeads.map(async (lead) => {
-        const intermediate = await FarmerLand_II.findOne({
-          farmerLeadId: lead._id,
-        });
+      const clientsWithProgress = await Promise.all(
+        farmerLeads.map(async (lead) => {
+          const intermediate = await FarmerLand_II.findOne({
+            farmerLeadId: lead._id,
+          });
 
-        let stage = "basic";
-        let completed = false;
+          let stage = "basic";
+          let completed = false;
 
-        if (intermediate) {
-          stage = "intermediate";
-          // Add advanced check when available
-          // if (advanced) {
-          //   stage = "advanced";
-          //   completed = true;
-          // }
-        }
+          if (intermediate) {
+            stage = "intermediate";
+            // Add advanced check when available
+            // if (advanced) {
+            //   stage = "advanced";
+            //   completed = true;
+            // }
+          }
 
-        return {
-          _id: lead._id,
-          name: lead.name,
-          phone: lead.phone,
-          address: lead.address,
-          createdAt: lead.createdAt,
-          progress: {
-            stage,
-            completed,
-          },
-        };
-      })
-    );
+          return {
+            _id: lead._id,
+            name: lead.name,
+            phone: lead.phone,
+            address: lead.address,
+            createdAt: lead.createdAt,
+            progress: {
+              stage,
+              completed,
+            },
+          };
+        })
+      );
 
-    res.json({
-      success: true,
-      data: clientsWithProgress,
-    });
-  } catch (error) {
-    console.error("Error fetching clients progress:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching clients",
-    });
+      res.json({
+        success: true,
+        data: clientsWithProgress,
+      });
+    } catch (error) {
+      console.error("Error fetching clients progress:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error while fetching clients",
+      });
+    }
   }
-});
+);
 
-router.get("/clients/:id", SalesEmployeeAuth, async (req, res) => {
+router.get("/farmer-leads/clients/:id", SalesEmployeeAuth, async (req, res) => {
   try {
     console.log("🔍 Fetching client details for ID:", req.params.id);
     console.log("👤 Sales Employee ID:", req.salesEmployee.id);
@@ -361,91 +433,96 @@ router.get("/clients/:id", SalesEmployeeAuth, async (req, res) => {
 });
 
 // Create land details
-router.post("/land-details", SalesEmployeeAuth, async (req, res) => {
-  try {
-    const {
-      farmerLeadId,
-      landOwner,
-      khatiyanNo,
-      plotNo,
-      plotArea,
-      landOwnerRelation,
-      documents,
-      landLocation,
-    } = req.body;
+router.post(
+  "/farmer-leads/land-details",
+  SalesEmployeeAuth,
+  async (req, res) => {
+    try {
+      const {
+        farmerLeadId,
+        landOwner,
+        khatiyanNo,
+        plotNo,
+        plotArea,
+        landOwnerRelation,
+        documents,
+        landLocation,
+      } = req.body;
 
-    console.log("📥 Received land details submission");
-    console.log("📋 Data received:", {
-      farmerLeadId,
-      landOwner,
-      khatiyanNo,
-      plotNo,
-      plotArea,
-      landOwnerRelation,
-      documentCount: documents ? Object.keys(documents).length : 0,
-      location: landLocation,
-    });
+      console.log("📥 Received land details submission");
+      console.log("📋 Data received:", {
+        farmerLeadId,
+        landOwner,
+        khatiyanNo,
+        plotNo,
+        plotArea,
+        landOwnerRelation,
+        documentCount: documents ? Object.keys(documents).length : 0,
+        location: landLocation,
+      });
 
-    // Validate required fields
-    if (!farmerLeadId || !landOwner || !khatiyanNo || !plotNo || !plotArea) {
-      return res.status(400).json({
+      // Validate required fields
+      if (!farmerLeadId || !landOwner || !khatiyanNo || !plotNo || !plotArea) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields",
+        });
+      }
+
+      // Check if farmer lead exists and belongs to this sales employee
+      const farmerLead = await FarmerLead.findOne({
+        _id: farmerLeadId,
+        salesEmployeeId: req.salesEmployee.id,
+      });
+
+      if (!farmerLead) {
+        return res.status(404).json({
+          success: false,
+          message: "Farmer lead not found or access denied",
+        });
+      }
+
+      // Check if land details already exist
+      const existingLandDetails = await FarmerLand_II.findOne({ farmerLeadId });
+      if (existingLandDetails) {
+        return res.status(400).json({
+          success: false,
+          message: "Land details already submitted for this client",
+        });
+      }
+
+      const landDetails = new FarmerLand_II({
+        farmerLeadId,
+        landOwner,
+        khatiyanNo,
+        plotNo,
+        plotArea,
+        landOwnerRelation,
+        documents: documents || {},
+        landLocation,
+      });
+
+      await landDetails.save();
+
+      console.log(`✅ Land details created for farmer lead: ${farmerLeadId}`);
+      console.log(`📝 Land Details ID: ${landDetails._id}`);
+
+      res.json({
+        success: true,
+        message: "Land details submitted successfully",
+        data: landDetails,
+      });
+    } catch (error) {
+      console.error("❌ Error creating land details:", error);
+      res.status(500).json({
         success: false,
-        message: "Missing required fields",
+        message: "Server error while creating land details",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
-
-    // Check if farmer lead exists and belongs to this sales employee
-    const farmerLead = await FarmerLead.findOne({
-      _id: farmerLeadId,
-      salesEmployeeId: req.salesEmployee.id,
-    });
-
-    if (!farmerLead) {
-      return res.status(404).json({
-        success: false,
-        message: "Farmer lead not found or access denied",
-      });
-    }
-
-    // Check if land details already exist
-    const existingLandDetails = await FarmerLand_II.findOne({ farmerLeadId });
-    if (existingLandDetails) {
-      return res.status(400).json({
-        success: false,
-        message: "Land details already submitted for this client",
-      });
-    }
-
-    const landDetails = new FarmerLand_II({
-      farmerLeadId,
-      landOwner,
-      khatiyanNo,
-      plotNo,
-      plotArea,
-      landOwnerRelation,
-      documents: documents || {},
-      landLocation,
-    });
-
-    await landDetails.save();
-
-    console.log(`✅ Land details created for farmer lead: ${farmerLeadId}`);
-    console.log(`📝 Land Details ID: ${landDetails._id}`);
-
-    res.json({
-      success: true,
-      message: "Land details submitted successfully",
-      data: landDetails,
-    });
-  } catch (error) {
-    console.error("❌ Error creating land details:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while creating land details",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
   }
-});
+);
 
 // Check if farmer exists (for OTP login)
 router.get("/check-farmer", async (req, res) => {

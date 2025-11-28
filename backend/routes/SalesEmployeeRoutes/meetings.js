@@ -1,3 +1,4 @@
+// routes/SalesEmployeeRoutes/meetings.js - UPDATED
 const express = require("express");
 const mongoose = require("mongoose");
 const Meeting = require("../../models/Meetings/Meeting");
@@ -9,28 +10,16 @@ router.get("/", SalesEmployeeAuth, async (req, res) => {
   try {
     const salesEmployeeId = req.salesEmployee.id;
     const salesEmployeeEmail = req.salesEmployee.email;
-    const salesEmployeeRole = "sales-employee"; // Get from auth if available
 
     console.log("🔍 Fetching meetings for sales employee:", salesEmployeeEmail);
 
-    // Find meetings where the sales employee is a participant by email or ID
-    // AND where the department includes sales-employee
+    // Find meetings where the sales employee is a participant
     const meetings = await Meeting.find({
-      $and: [
-        {
-          $or: [
-            { "participants.email": salesEmployeeEmail },
-            { "participants._id": salesEmployeeId },
-            // Also check by role/department
-            { "participants.department": "sales-employee" },
-          ],
-        },
-        {
-          $or: [
-            { "participants.department": "sales-employee" },
-            { departments: "sales-employee" },
-          ],
-        },
+      $or: [
+        { "participants.email": salesEmployeeEmail },
+        { "participants._id": salesEmployeeId },
+        { "participants.department": "sales-employee" },
+        { departments: "sales-employee" },
       ],
     })
       .populate("organizer", "name photo companyEmail")
@@ -85,21 +74,112 @@ router.get("/", SalesEmployeeAuth, async (req, res) => {
   }
 });
 
+// Get meeting details by ID - FIXED VERSION
+router.get("/:id", SalesEmployeeAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const salesEmployeeEmail = req.salesEmployee.email;
+    const salesEmployeeId = req.salesEmployee.id;
+
+    console.log("🔍 Fetching meeting details for ID:", id);
+    console.log("👤 Sales Employee:", salesEmployeeEmail);
+
+    // Validate MongoDB ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid meeting ID format",
+      });
+    }
+
+    const meeting = await Meeting.findOne({
+      _id: id,
+      $or: [
+        { "participants.email": salesEmployeeEmail },
+        { "participants._id": salesEmployeeId },
+        { "participants.department": "sales-employee" },
+        { departments: "sales-employee" },
+      ],
+    }).populate("organizer", "name photo companyEmail");
+
+    if (!meeting) {
+      console.log("❌ Meeting not found or access denied");
+      return res.status(404).json({
+        success: false,
+        message: "Meeting not found or you don't have access to this meeting",
+      });
+    }
+
+    console.log("✅ Meeting found:", meeting.title);
+
+    // Format the response to match frontend expectations
+    const formattedMeeting = {
+      _id: meeting._id,
+      title: meeting.title,
+      description: meeting.description,
+      googleMeetLink: meeting.meetingLink || meeting.googleMeetLink,
+      googleSheetLink: meeting.googleSheetLink,
+      organizer: meeting.organizer
+        ? {
+            _id: meeting.organizer._id,
+            name: meeting.organizer.name,
+            photo: meeting.organizer.photo,
+            email: meeting.organizer.companyEmail,
+          }
+        : meeting.organizer,
+      participants: meeting.participants || [],
+      timeSlots: meeting.timeSlots || [
+        {
+          date: meeting.meetingDate,
+          startTime: meeting.startTime,
+          endTime: meeting.endTime,
+          status: meeting.status || "scheduled",
+          _id: meeting._id,
+        },
+      ],
+      agenda: meeting.agenda,
+      meetingType: meeting.meetingType || meeting.platform,
+      priority: meeting.priority,
+      status: meeting.status,
+      createdAt: meeting.createdAt,
+    };
+
+    res.json({
+      success: true,
+      data: formattedMeeting,
+      message: "Meeting details fetched successfully",
+    });
+  } catch (error) {
+    console.error("❌ Error fetching meeting details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch meeting details",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
 // Get meeting history
-router.get("/history", SalesEmployeeAuth, async (req, res) => {
+router.get("/history/completed", SalesEmployeeAuth, async (req, res) => {
   try {
     const salesEmployeeEmail = req.salesEmployee.email;
+    const salesEmployeeId = req.salesEmployee.id;
 
     console.log("📅 Fetching meeting history for:", salesEmployeeEmail);
 
     const meetings = await Meeting.find({
       $or: [
         { "participants.email": salesEmployeeEmail },
-        { "participants._id": req.salesEmployee.id },
+        { "participants._id": salesEmployeeId },
+        { "participants.department": "sales-employee" },
       ],
       $or: [
         { status: "completed" },
-        { meetingDate: { $lt: new Date().toISOString().split("T")[0] } },
+        {
+          meetingDate: {
+            $lt: new Date().toISOString().split("T")[0],
+          },
+        },
       ],
     })
       .populate("organizer", "name photo companyEmail")
@@ -135,42 +215,6 @@ router.get("/history", SalesEmployeeAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch meeting history",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-
-// Get meeting details by ID
-router.get("/:id", SalesEmployeeAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const salesEmployeeEmail = req.salesEmployee.email;
-
-    const meeting = await Meeting.findOne({
-      _id: id,
-      $or: [
-        { "participants.email": salesEmployeeEmail },
-        { "participants._id": req.salesEmployee.id },
-      ],
-    }).populate("organizer", "name photo companyEmail");
-
-    if (!meeting) {
-      return res.status(404).json({
-        success: false,
-        message: "Meeting not found or access denied",
-      });
-    }
-
-    res.json({
-      success: true,
-      data: meeting,
-      message: "Meeting details fetched successfully",
-    });
-  } catch (error) {
-    console.error("❌ Error fetching meeting details:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch meeting details",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }

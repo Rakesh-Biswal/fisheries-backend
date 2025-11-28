@@ -164,7 +164,7 @@ app.use("/api/sales-employee/auth", salesEmployeeAuthRoutes);
 app.use("/api/sales-employee/meetings", salesEmployeeMeetingRoutes);
 app.use("/api/sales-employee/tasks", salesEmployeeTaskRoutes);
 app.use("/api/sales-employee/attendance", salesEmployeeAttendanceRoutes);
-app.use("/api/sales-employee/farmer-leads", salesEmployeeFarmerRoutes);
+app.use("/api/sales-employee", salesEmployeeFarmerRoutes);
 app.use("/api/sales-employee/holidays", salesEmployeeHolidayRoutes);
 
 

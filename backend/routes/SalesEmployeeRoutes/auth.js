@@ -163,6 +163,7 @@ router.post("/change-password", async (req, res) => {
       currentPassword,
       user.password
     );
+
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
         success: false,
@@ -173,6 +174,7 @@ router.post("/change-password", async (req, res) => {
     const hashedNewPassword = await bcrypt.hash(newPassword, 12);
     user.password = hashedNewPassword;
     user.updatedAt = new Date();
+
     await user.save();
 
     res.json({
@@ -181,6 +183,14 @@ router.post("/change-password", async (req, res) => {
     });
   } catch (error) {
     console.error("Change password error:", error);
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Failed to change password",
@@ -219,6 +229,142 @@ router.post("/forgot-password", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to process forgot password request",
+    });
+  }
+});
+
+router.post("/verify-phone", async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No token provided",
+      });
+    }
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await SalesEmployeeEmployee.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Clean phone numbers for comparison
+    const cleanInputPhone = phone.replace(/\D/g, "");
+    const cleanUserPhone = user.phone.replace(/\D/g, "");
+
+    if (cleanInputPhone !== cleanUserPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number does not match your registered number",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Phone number verified successfully",
+    });
+  } catch (error) {
+    console.error("Phone verification error:", error);
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify phone number",
+    });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { phone, newPassword } = req.body;
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No token provided",
+      });
+    }
+
+    if (!phone || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number and new password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await SalesEmployeeEmployee.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Verify phone number again for security
+    const cleanInputPhone = phone.replace(/\D/g, "");
+    const cleanUserPhone = user.phone.replace(/\D/g, "");
+
+    if (cleanInputPhone !== cleanUserPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number verification failed",
+      });
+    }
+
+    // Hash and update password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedNewPassword;
+    user.updatedAt = new Date();
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to reset password",
     });
   }
 });
