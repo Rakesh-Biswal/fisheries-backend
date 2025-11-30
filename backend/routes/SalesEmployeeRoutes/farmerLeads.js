@@ -150,6 +150,15 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
     // Rest of the code remains the same...
     const temporaryPassword = generateTemporaryPassword();
 
+    // Determine lead status and completion stage
+    let leadStatus = "new";
+    let completionStage = "basic";
+    let followUpStatus = "pending";
+
+    if (nextFollowUpDate) {
+      followUpStatus = "pending";
+    }
+
     const farmerLead = new FarmerLead({
       name: name.trim(),
       address: address.trim(),
@@ -176,6 +185,9 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
         : undefined,
       salesEmployeeApproved: true,
       temporaryPassword,
+      leadStatus,
+      completionStage,
+      followUpStatus,
     });
 
     await farmerLead.save();
@@ -183,6 +195,7 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
     console.log(
       `✅ New farmer lead created by ${req.salesEmployee.name}: ${name}`
     );
+
     console.log(`📝 Lead ID: ${farmerLead._id}`);
     console.log(`🔐 Temporary Password: ${temporaryPassword}`);
     if (taskId) console.log(`📋 Associated with task: ${taskId}`);
@@ -218,7 +231,7 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
     }
 
     // Prepare response with email status
-    const response = {
+    res.json({
       success: true,
       message: "Farmer lead created successfully",
       data: {
@@ -235,35 +248,9 @@ router.post("/farmer-leads", SalesEmployeeAuth, async (req, res) => {
               : "Unknown status",
         },
       },
-    };
-
-    // Add email warning if email failed
-    if (emailStatus === "failed") {
-      response.warning = "Farmer lead created but welcome email failed to send";
-    }
-
-    res.json(response);
+    });
   } catch (error) {
     console.error("❌ Error creating farmer lead:", error);
-
-    // Handle duplicate key errors
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
-      return res.status(400).json({
-        success: false,
-        message: `A farmer with this ${field} already exists`,
-      });
-    }
-
-    // Handle validation errors
-    if (error.name === "ValidationError") {
-      const messages = Object.values(error.errors).map((err) => err.message);
-      return res.status(400).json({
-        success: false,
-        message: messages.join(", "),
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: "Server error while creating farmer lead",
@@ -627,5 +614,161 @@ router.get(
     }
   }
 );
+
+router.get(
+  "/farmer-leads/with-followups",
+  SalesEmployeeAuth,
+  async (req, res) => {
+    try {
+      const { status, page = 1, limit = 10 } = req.query;
+
+      const query = { salesEmployeeId: req.salesEmployee.id };
+
+      // Filter by status if provided
+      if (status && status !== "all") {
+        if (status === "needs-attention") {
+          // Leads with follow-up in next 2 days
+          const twoDaysFromNow = new Date();
+          twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
+
+          query.nextFollowUpDate = {
+            $lte: twoDaysFromNow,
+            $gte: new Date(), // Today or future
+          };
+          query.followUpStatus = "pending";
+        } else if (status === "urgent") {
+          // Leads with follow-up tomorrow or today
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(23, 59, 59, 999);
+
+          query.nextFollowUpDate = {
+            $lte: tomorrow,
+            $gte: new Date(), // Today or future
+          };
+          query.followUpStatus = "pending";
+        } else {
+          query.leadStatus = status;
+        }
+      }
+
+      const farmerLeads = await FarmerLead.find(query)
+        .sort({
+          nextFollowUpDate: 1, // Sort by follow-up date (closest first)
+          createdAt: -1,
+        })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
+
+      // Get total count for pagination
+      const total = await FarmerLead.countDocuments(query);
+
+      // Enhance leads with follow-up urgency info
+      const enhancedLeads = farmerLeads.map((lead) => {
+        const leadObj = lead.toObject();
+        return {
+          ...leadObj,
+          followUpUrgency: calculateFollowUpUrgency(lead.nextFollowUpDate),
+          hasLandDetails: false, // Will be populated in next step
+        };
+      });
+
+      res.json({
+        success: true,
+        data: enhancedLeads,
+        pagination: {
+          current: page,
+          total: Math.ceil(total / limit),
+          results: total,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error fetching farmer leads with followups:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error while fetching farmer leads",
+      });
+    }
+  }
+);
+
+// Update follow-up status - NEW ENDPOINT
+router.put(
+  "/farmer-leads/:id/follow-up",
+  SalesEmployeeAuth,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { followUpStatus, followUpNotes, nextFollowUpDate } = req.body;
+
+      const farmerLead = await FarmerLead.findOne({
+        _id: id,
+        salesEmployeeId: req.salesEmployee.id,
+      });
+
+      if (!farmerLead) {
+        return res.status(404).json({
+          success: false,
+          message: "Farmer lead not found",
+        });
+      }
+
+      const updateData = {};
+
+      if (followUpStatus) {
+        updateData.followUpStatus = followUpStatus;
+        updateData.lastFollowUpDate = new Date();
+      }
+
+      if (followUpNotes) {
+        updateData.followUpNotes = followUpNotes;
+      }
+
+      if (nextFollowUpDate) {
+        updateData.nextFollowUpDate = new Date(nextFollowUpDate);
+        updateData.followUpStatus = "pending";
+
+        // Reset notification flags for new follow-up date
+        updateData.notificationsSent = {
+          twoDayReminder: false,
+          oneDayReminder: false,
+          sameDayReminder: false,
+        };
+      }
+
+      const updatedLead = await FarmerLead.findByIdAndUpdate(id, updateData, {
+        new: true,
+      });
+
+      res.json({
+        success: true,
+        message: "Follow-up status updated successfully",
+        data: updatedLead,
+      });
+    } catch (error) {
+      console.error("❌ Error updating follow-up status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error while updating follow-up status",
+      });
+    }
+  }
+);
+
+// Helper function to calculate follow-up urgency
+function calculateFollowUpUrgency(nextFollowUpDate) {
+  if (!nextFollowUpDate) return null;
+
+  const today = new Date();
+  const followUp = new Date(nextFollowUpDate);
+  const diffTime = followUp - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) return "overdue";
+  if (diffDays === 1) return "urgent";
+  if (diffDays <= 2) return "needs-attention";
+
+  return "scheduled";
+}
 
 module.exports = router;

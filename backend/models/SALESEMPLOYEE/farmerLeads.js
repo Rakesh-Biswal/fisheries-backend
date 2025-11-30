@@ -42,8 +42,35 @@ const FarmerLeadSchema = new mongoose.Schema(
     },
 
     // ===== Reminder/Notice Period =====
-    nextFollowUpDate: { type: Date }, // to remind sales employee for next visit
+    nextFollowUpDate: {
+      type: Date,
+      index: true,
+    }, // to remind sales employee for next visit
+    followUpStatus: {
+      type: String,
+      enum: ["pending", "completed", "overdue", "cancelled"],
+      default: "pending",
+    },
+    followUpNotes: { type: String },
+    lastFollowUpDate: { type: Date },
 
+    // ===== Lead Status Tracking =====
+    leadStatus: {
+      type: String,
+      enum: ["new", "processing", "completed", "cancelled"],
+      default: "new",
+    },
+    completionStage: {
+      type: String,
+      enum: ["basic", "intermediate", "advanced"],
+      default: "basic",
+    },
+    // ===== Notification Tracking =====
+    notificationsSent: {
+      twoDayReminder: { type: Boolean, default: false },
+      oneDayReminder: { type: Boolean, default: false },
+      sameDayReminder: { type: Boolean, default: false },
+    },
     // ===== Approval Status =====
     salesEmployeeApproved: { type: Boolean, default: null }, // true/false/null
     teamLeaderApproved: { type: Boolean, default: true },
@@ -63,5 +90,16 @@ const FarmerLeadSchema = new mongoose.Schema(
 function arrayLimit(val) {
   return val.length <= 4;
 }
+
+FarmerLeadSchema.index({
+  salesEmployeeId: 1,
+  nextFollowUpDate: 1,
+  followUpStatus: 1,
+});
+
+FarmerLeadSchema.index({
+  salesEmployeeId: 1,
+  leadStatus: 1,
+});
 
 module.exports = mongoose.model("FarmerLead", FarmerLeadSchema);
