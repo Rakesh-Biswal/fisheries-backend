@@ -7,18 +7,19 @@ const SalesEmployeeEmployee = require('../../models/SALESEMPLOYEE/SalesEmployeeE
 const TeamLeaderBusinessData = require('../../models/TEAMLEADER/TeamLeaderBusinessData');
 const TeamSchema = require('../../models/TEAMLEADER/TeamSchema');
 const TLAuth = require('./TeamLeaderAuthMiddlewear');
+const FarmerLead = require('../../models/SALESEMPLOYEE/farmerLeads');
 
 // Get assigned HR tasks for Team Leader
 router.get('/assigned-tasks', TLAuth, async (req, res) => {
   try {
-    const tasks = await HrTask.find({ 
+    const tasks = await HrTask.find({
       assignedTo: req.tl.id,
       status: { $ne: 'completed' }
     })
-    .populate('assignedTo', 'name companyEmail photo')
-    .populate('assignedBy', 'name companyEmail')
-    .populate('originalTask')
-    .sort({ createdAt: -1 });
+      .populate('assignedTo', 'name companyEmail photo')
+      .populate('assignedBy', 'name companyEmail')
+      .populate('originalTask')
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -204,7 +205,7 @@ router.post('/assign-task', TLAuth, async (req, res) => {
     });
 
     await tlTask.save();
-    
+
     // Populate assigned sales employee details
     await tlTask.populate('assignedTo', 'name companyEmail photo empCode');
     await tlTask.populate('originalTask');
@@ -219,6 +220,215 @@ router.post('/assign-task', TLAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to assign task'
+    });
+  }
+});
+
+// Get task details with associated farmer leads (work done) - FIXED VERSION
+router.get('/task-details/:taskId', TLAuth, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    console.log('Fetching task details for taskId:', taskId);
+
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid task ID'
+      });
+    }
+
+    // Find the task
+    const task = await TLTask.findOne({
+      _id: taskId,
+      assignedBy: req.tl.id
+    })
+      .populate('assignedTo', 'name companyEmail photo empCode designation')
+      .populate('assignedBy', 'name companyEmail photo empCode')
+      .populate('originalTask', 'title description priority deadline')
+      .lean();
+
+    console.log('Found task:', task ? task._id : 'No task found');
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: 'Task not found or you do not have permission to view it'
+      });
+    }
+
+    // Find all farmer leads associated with this task - FIXED QUERY
+    const farmerLeads = await FarmerLead.find({
+      taskId: taskId  // Remove the ObjectId wrapper as mongoose handles this automatically
+    })
+      .populate('salesEmployeeId', 'name companyEmail photo empCode')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log('Found farmer leads:', farmerLeads.length);
+
+    // Format the response
+    const taskDetails = {
+      // Basic task information
+      _id: task._id,
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      status: task.status,
+      progress: task.progress,
+      highlights: task.highlights || [],
+
+      // Timeline information
+      assignmentDate: task.assignmentDate,
+      deadline: task.deadline,
+      completedAt: task.completedAt,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+
+      // Assigned to information
+      assignedTo: task.assignedTo,
+
+      // Assigned by information
+      assignedBy: task.assignedBy,
+
+      // Original task information
+      originalTask: task.originalTask,
+
+      // Farmer Leads (Work Done)
+      farmerLeads: farmerLeads.map(lead => ({
+        _id: lead._id,
+        farmerName: lead.name,
+        farmerPhone: lead.phone,
+        farmerAddress: lead.address,
+        farmerEmail: lead.email,
+        farmerAge: lead.age,
+        farmerGender: lead.gender,
+        farmSize: lead.farmSize,
+        farmType: lead.farmType,
+        farmingExperience: lead.farmingExperience,
+        previousCrops: lead.previousCrops || [],
+        preferredFishType: lead.preferredFishType,
+        submissionDate: lead.submissionDateTime || lead.createdAt,
+        salesEmployee: lead.salesEmployeeId,
+        salesEmployeePhotos: lead.salesEmployeePhotos || [],
+        submissionLocation: lead.submissionLocation,
+        status: lead.salesEmployeeApproved === true ? 'Approved' :
+          lead.salesEmployeeApproved === false ? 'Rejected' : 'Pending',
+        notes: lead.notes,
+        nextFollowUpDate: lead.nextFollowUpDate,
+        temporaryPassword: lead.temporaryPassword
+      })),
+
+      // Response from sales employee
+      response: task.response ? {
+        submittedAt: task.response.submittedAt,
+        workStatus: task.response.workStatus,
+        completionPercentage: task.response.completionPercentage || 0,
+        hoursSpent: task.response.hoursSpent,
+        responseTitle: task.response.responseTitle,
+        responseDescription: task.response.responseDescription,
+        challengesFaced: task.response.challengesFaced,
+        nextSteps: task.response.nextSteps,
+        keyPoints: task.response.keyPoints || [],
+        images: task.response.images || [],
+        rating: task.response.rating
+      } : null
+    };
+
+    res.json({
+      success: true,
+      data: taskDetails
+    });
+  } catch (error) {
+    console.error('Error fetching task details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch task details',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get work progress history for a specific task
+router.get('/task-work-progress/:taskId', TLAuth, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid task ID'
+      });
+    }
+
+    // Verify task belongs to this TL
+    const task = await TLTask.findOne({
+      _id: taskId,
+      assignedBy: req.tl.id
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: 'Task not found'
+      });
+    }
+
+    // Get work progress from comments and response
+    const workProgress = [];
+
+    // Add main response as work progress entry
+    if (task.response && task.response.submittedAt) {
+      workProgress.push({
+        type: 'final_response',
+        date: task.response.submittedAt,
+        description: task.response.responseDescription || 'Final work submission',
+        workStatus: task.response.workStatus,
+        progress: task.response.completionPercentage || task.progress,
+        hoursSpent: task.response.hoursSpent,
+        challenges: task.response.challengesFaced,
+        nextSteps: task.response.nextSteps,
+        keyPoints: task.response.keyPoints || [],
+        images: task.response.images || []
+      });
+    }
+
+    // Add comments as work updates
+    if (task.comments && task.comments.length > 0) {
+      const workComments = task.comments
+        .filter(comment =>
+          comment.text &&
+          (comment.text.toLowerCase().includes('update') ||
+            comment.text.toLowerCase().includes('progress') ||
+            comment.text.toLowerCase().includes('work'))
+        )
+        .map(comment => ({
+          type: 'progress_update',
+          date: comment.createdAt,
+          description: comment.text,
+          user: comment.user
+        }));
+
+      workProgress.push(...workComments);
+    }
+
+    // Sort by date (newest first)
+    workProgress.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({
+      success: true,
+      data: {
+        taskId: task._id,
+        taskTitle: task.title,
+        totalWorkEntries: workProgress.length,
+        workProgress: workProgress
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching work progress:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch work progress history'
     });
   }
 });
@@ -238,9 +448,9 @@ router.get('/today-tasks', TLAuth, async (req, res) => {
         $lt: tomorrow
       }
     })
-    .populate('assignedTo', 'name companyEmail photo empCode')
-    .populate('originalTask', 'title description')
-    .sort({ createdAt: -1 });
+      .populate('assignedTo', 'name companyEmail photo empCode')
+      .populate('originalTask', 'title description')
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -278,9 +488,9 @@ router.get('/tasks-by-date', TLAuth, async (req, res) => {
         $lt: nextDate
       }
     })
-    .populate('assignedTo', 'name companyEmail photo empCode')
-    .populate('originalTask', 'title description')
-    .sort({ createdAt: -1 });
+      .populate('assignedTo', 'name companyEmail photo empCode')
+      .populate('originalTask', 'title description')
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -299,16 +509,16 @@ router.get('/tasks-by-date', TLAuth, async (req, res) => {
 router.get('/assigned-tasks-history', TLAuth, async (req, res) => {
   try {
     const { page = 1, limit = 10, date } = req.query;
-    
+
     let query = { assignedBy: req.tl.id };
-    
+
     // Filter by date if provided
     if (date) {
       const selectedDate = new Date(date);
       selectedDate.setHours(0, 0, 0, 0);
       const nextDate = new Date(selectedDate);
       nextDate.setDate(nextDate.getDate() + 1);
-      
+
       query.assignmentDate = {
         $gte: selectedDate,
         $lt: nextDate
@@ -346,11 +556,11 @@ router.patch('/task-response/:id', TLAuth, async (req, res) => {
     const { response } = req.body;
 
     const task = await TLTask.findOneAndUpdate(
-      { 
-        _id: req.params.id, 
-        assignedBy: req.tl.id 
+      {
+        _id: req.params.id,
+        assignedBy: req.tl.id
       },
-      { 
+      {
         response: {
           ...response,
           submittedAt: new Date()
@@ -359,8 +569,8 @@ router.patch('/task-response/:id', TLAuth, async (req, res) => {
       },
       { new: true }
     )
-    .populate('assignedTo', 'name companyEmail photo empCode')
-    .populate('originalTask', 'title description');
+      .populate('assignedTo', 'name companyEmail photo empCode')
+      .populate('originalTask', 'title description');
 
     if (!task) {
       return res.status(404).json({
@@ -392,14 +602,14 @@ router.get('/stats', TLAuth, async (req, res) => {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const todayStats = await TLTask.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           assignedBy: new mongoose.Types.ObjectId(req.tl.id),
           assignmentDate: {
             $gte: today,
             $lt: tomorrow
           }
-        } 
+        }
       },
       {
         $group: {
@@ -419,10 +629,10 @@ router.get('/stats', TLAuth, async (req, res) => {
     ]);
 
     const overallStats = await TLTask.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           assignedBy: new mongoose.Types.ObjectId(req.tl.id)
-        } 
+        }
       },
       {
         $group: {
@@ -515,9 +725,9 @@ router.get('/assigned-tasks/:id', TLAuth, async (req, res) => {
       _id: req.params.id,
       assignedTo: req.tl.id
     })
-    .populate('assignedTo', 'name companyEmail photo empCode')
-    .populate('assignedBy', 'name companyEmail photo')
-    .populate('originalTask');
+      .populate('assignedTo', 'name companyEmail photo empCode')
+      .populate('assignedBy', 'name companyEmail photo')
+      .populate('originalTask');
 
     if (!task) {
       return res.status(404).json({
@@ -552,20 +762,20 @@ router.patch('/assigned-tasks/:id/status', TLAuth, async (req, res) => {
     }
 
     const task = await HrTask.findOneAndUpdate(
-      { 
-        _id: req.params.id, 
-        assignedTo: req.tl.id 
+      {
+        _id: req.params.id,
+        assignedTo: req.tl.id
       },
-      { 
+      {
         status,
         progress: progress || 0,
         ...(status === 'completed' && { completedAt: new Date() })
       },
       { new: true }
     )
-    .populate('assignedTo', 'name companyEmail photo empCode')
-    .populate('assignedBy', 'name companyEmail photo')
-    .populate('originalTask');
+      .populate('assignedTo', 'name companyEmail photo empCode')
+      .populate('assignedBy', 'name companyEmail photo')
+      .populate('originalTask');
 
     if (!task) {
       return res.status(404).json({
